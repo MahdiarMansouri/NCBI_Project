@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import mysql.connector
 
-
+print("Hi Im lost")
 class BLAST:
     def __init__(self, WGS, gene, db_info):
         self.WGS = WGS
