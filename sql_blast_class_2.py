@@ -32,7 +32,7 @@ class BLAST:
         # Perform BLAST search
         result = subprocess.run(
             ["blastn", "-query", f"{self.gene}.fasta", "-db", "WGS", "-out", f"{self.gene}.csv", "-outfmt",
-             "10 sseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe"],
+             "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe"],
             capture_output=True, text=True
         )
         print("blastn output:", result.stdout)
