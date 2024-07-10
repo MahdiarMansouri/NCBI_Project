@@ -5,7 +5,6 @@ from datetime import datetime
 import pandas as pd
 import mysql.connector
 
-print("Hi Im lost")
 class BLAST:
     def __init__(self, WGS, gene, db_info):
         self.WGS = WGS
@@ -250,6 +249,3 @@ gene.show_database_contents(Gene)
 end_time = datetime.now()
 print()
 print('Duration: {}'.format(end_time - start_time))
-
-
-#edit
