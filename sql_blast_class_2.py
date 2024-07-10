@@ -250,3 +250,6 @@ gene.show_database_contents(Gene)
 end_time = datetime.now()
 print()
 print('Duration: {}'.format(end_time - start_time))
+
+
+#edit
