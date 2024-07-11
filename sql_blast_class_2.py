@@ -6,15 +6,12 @@ import pandas as pd
 import mysql.connector
 
 class BLAST:
-    def __init__(self, WGS, gene, db_info):
+    def __init__(self, WGS, gene,):
         self.WGS = WGS
         self.gene = gene
-        self.db_info = db_info
-        self.mydb = None
-
     def blast(self):
         # Create BLAST database
-        blast_dir = "C:\\Program Files\\NCBI\\blast-2.15.0+\\bin"
+        blast_dir = "D:\\programming\\NCBI_Project"
         os.chdir(blast_dir)
 
         result = subprocess.run(["makeblastdb", "-version"], capture_output=True, text=True)
@@ -37,6 +34,12 @@ class BLAST:
         print("blastn output:", result.stdout)
         if result.stderr:
             print("blastn error:", result.stderr)
+
+class DB:
+    def __init__(self, gene, db_info):
+        self.gene = gene
+        self.db_info = db_info
+        self.mydb = None
 
     def connect(self):
         # Connect to MySQL server
@@ -218,14 +221,15 @@ WGS = "combined.fasta"
 Gene = "mepa"
 
 ####run functions for testing:
-gene = BLAST(WGS, Gene, db_info)
-gene.blast()
+blast_gene = BLAST(WGS, Gene)
+gene = DB(Gene, db_info)
+
+"""blast_gene.blast()
 gene.connect()
 gene.create_table(Gene)
 gene.save()
-gene.show_database_contents(Gene)
+gene.show_database_contents(Gene)"""
 
-gene = BLAST(WGS, Gene, db_info)
 gene.connect()
 
 # for testing the add_row function:
@@ -242,7 +246,7 @@ gene.connect()
 # gene.update_row("mepa", "identity = 30", "subject_id = '131598'")
 
 # for testing the export_csv function:
-# gene.export_CSV(Gene, f"{Gene}.CSV")
+# gene.export_CSV(Gene, f"{Gene}_output.CSV")
 
 gene.show_database_contents(Gene)
 
