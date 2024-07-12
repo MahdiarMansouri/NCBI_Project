@@ -5,13 +5,15 @@ from datetime import datetime
 import pandas as pd
 import mysql.connector
 
+
 class BLAST:
-    def __init__(self, WGS, gene,):
+    def __init__(self, WGS, gene):
         self.WGS = WGS
         self.gene = gene
+
     def blast(self):
         # Create BLAST database
-        blast_dir = "D:\\programming\\NCBI_Project"
+        blast_dir = "C:\\Users\\mrnaj\\PycharmProjects\\NCBI_project_2"
         os.chdir(blast_dir)
 
         result = subprocess.run(["makeblastdb", "-version"], capture_output=True, text=True)
@@ -35,6 +37,7 @@ class BLAST:
         if result.stderr:
             print("blastn error:", result.stderr)
 
+
 class DB:
     def __init__(self, gene, db_info):
         self.gene = gene
@@ -42,17 +45,21 @@ class DB:
         self.mydb = None
 
     def connect(self):
-        # Connect to MySQL server
-        self.mydb = mysql.connector.connect(
-            host=self.db_info['host'],
-            user=self.db_info['user'],
-            passwd=self.db_info['passwd'],
-            database=self.db_info['database']
-        )
+        try:
+            self.mydb = mysql.connector.connect(
+                host=self.db_info['host'],
+                user=self.db_info['user'],
+                passwd=self.db_info['passwd'],
+                database=self.db_info['database']
+            )
+            print("Successfully connected to the database.")
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
 
     def create_table(self, table_name):
         # Define table columns and types
         columns = '''
+            id INT AUTO_INCREMENT PRIMARY KEY,
             query_id VARCHAR(100),
             subject_id VARCHAR(100),
             identity FLOAT,
@@ -231,14 +238,14 @@ start_time = datetime.now()
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'passwd': 'root123',
-    'database': 'blast'
+    'passwd': 'mrnd181375',
+    'database': 'wgs'
 }
 
 WGS = "combined.fasta"
 Gene = "mepa"
 
-####run functions for testing:
+# run functions for testing:
 blast_gene = BLAST(WGS, Gene)
 gene = DB(Gene, db_info)
 
@@ -246,26 +253,6 @@ blast_gene.blast()
 gene.connect()
 gene.create_table(Gene)
 gene.save()
-gene.show_database_contents(Gene)
-
-gene.connect()
-
-# for testing the add_row function:
-# new_row = ("query1", "0001", 99.9, 100, 0, 0, 1, 100, 1, 100, 1e-50, 200, 100, 100, "plus", 1, 1)
-# gene.add_row(Gene,new_row)
-
-# for testing the delete_row funxtion:
-# gene.delete_row(Gene, "query_id = 'query1'")
-
-# for testing the gene search method:
-# gene.gene_search("mepa")
-
-# for testing update_row function:
-# gene.update_row("mepa", "identity = 30", "subject_id = '131598'")
-
-# for testing the export_csv function:
-# gene.export_CSV(Gene, f"{Gene}_output.CSV")
-
 gene.show_database_contents(Gene)
 
 end_time = datetime.now()
