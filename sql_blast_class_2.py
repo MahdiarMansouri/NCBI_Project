@@ -13,7 +13,7 @@ class BLAST:
 
     def blast(self):
         # Create BLAST database
-        blast_dir = "C:\\Users\\mrnaj\\PycharmProjects\\NCBI_Project"
+        blast_dir = "C:\\Users\\mrnaj\\PycharmProjects\\NCBI_project_2"
         os.chdir(blast_dir)
 
         result = subprocess.run(["makeblastdb", "-version"], capture_output=True, text=True)
