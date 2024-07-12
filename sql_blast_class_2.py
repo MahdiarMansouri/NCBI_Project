@@ -28,7 +28,7 @@ class BLAST:
         # Perform BLAST search
         result = subprocess.run(
             ["blastn", "-query", f"{self.gene}.fasta", "-db", "WGS", "-out", f"{self.gene}.csv", "-outfmt",
-             "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe"],
+             "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe qseq sseq"],
             capture_output=True, text=True
         )
         print("blastn output:", result.stdout)
@@ -69,7 +69,9 @@ class DB:
             subject_length INT,
             subject_strand VARCHAR(20),
             query_frame INT,
-            sbjct_frame INT
+            sbjct_frame INT,
+            qseq_path VARCHAR(300),
+            sseq_path VARCHAR(300)
         '''
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
         self.execute(create_table_query)
@@ -81,13 +83,26 @@ class DB:
         cursor = self.mydb.cursor()
 
         insert_query = f"""
-            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
-                                      mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score, query_length, subject_length, subject_strand, query_frame, sbjct_frame)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
+              INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+                                        mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
+                                         query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+          """
 
-        for _, row in df.iterrows():
-            cursor.execute(insert_query, tuple(row))  # Assuming all columns in CSV align with insert query
+        # Iterate through each row in the DataFrame
+        for idx, row in df.iterrows():
+            # Define paths for qseq and sseq files
+            qseq_path = f"{self.gene}_qseq_{idx}.txt"
+            sseq_path = f"{self.gene}_sseq_{idx}.txt"
+
+            with open(qseq_path, 'w') as qf:
+                qf.write(row[17])
+            with open(sseq_path, 'w') as sf:
+                sf.write(row[18])
+
+            row_data = tuple(row[:17]) + (qseq_path, sseq_path)
+
+            cursor.execute(insert_query, row_data)
 
         self.mydb.commit()
         cursor.close()
@@ -118,7 +133,7 @@ class DB:
         print("Database Contents:")
         print("-------------------")
         print(
-            "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame")
+            "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
 
         # Print each row
         for row in rows:
@@ -129,8 +144,10 @@ class DB:
     def add_row(self, table_name, row_data):
         cursor = self.mydb.cursor()
         insert_query = f"""
-            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score, query_length, subject_length, subject_strand, query_frame, sbjct_frame)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
+            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, 
+            mismatches, gap_opens, q_start,q_end, s_start, s_end, evalue, bit_score, query_length, 
+            subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
         """
         cursor.execute(insert_query, row_data)
         self.mydb.commit()
@@ -170,7 +187,8 @@ class DB:
             print("Database Contents:")
             print("-------------------")
             print(
-                "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame")
+                "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
+
         else:
             print(f"No table found for gene: {gene}")
             rows = []
@@ -224,11 +242,11 @@ Gene = "mepa"
 blast_gene = BLAST(WGS, Gene)
 gene = DB(Gene, db_info)
 
-"""blast_gene.blast()
+blast_gene.blast()
 gene.connect()
 gene.create_table(Gene)
 gene.save()
-gene.show_database_contents(Gene)"""
+gene.show_database_contents(Gene)
 
 gene.connect()
 
