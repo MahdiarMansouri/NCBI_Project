@@ -1,6 +1,7 @@
 import pandas as pd
 import mysql.connector
 from ..entity.gene import *
+from ..entity.genome import WholeGenome
 
 
 class DB:
@@ -56,140 +57,150 @@ class DB:
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
         add_query_command = f"""INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
         mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
-        query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path) VALUES(*{result})
+        query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
+
         self.cursor.execute(create_table_query)
         self.cursor.execute(add_query_command)
         self.disconnect(commit=True)
 
-    def insert_data_from_csv(self, table_name, csv_file):
-        # Read the CSV file
-        df = pd.read_csv(csv_file, header=None)
-
-        cursor = self.mydb.cursor()
-
-        insert_query = f"""
-                  INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
-                                            mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
-                                             query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-              """
-
-        # Iterate through each row in the DataFrame
-        for idx, row in df.iterrows():
-            # Define paths for qseq and sseq files
-            qseq_path = f"{self.gene}_qseq_{idx}.txt"
-            sseq_path = f"{self.gene}_sseq_{idx}.txt"
-
-            with open(qseq_path, 'w') as qf:
-                qf.write(row[17])
-            with open(sseq_path, 'w') as sf:
-                sf.write(row[18])
-
-            row_data = tuple(row[:17]) + (qseq_path, sseq_path)
-
-            cursor.execute(insert_query, row_data)
-
-        self.disconnect(commit=True)
+    #
+    # def insert_data_from_csv(self, table_name, csv_file):
+    #     # Read the CSV file
+    #     df = pd.read_csv(csv_file, header=None)
+    #
+    #     cursor = self.mydb.cursor()
+    #
+    #     insert_query = f"""
+    #               INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+    #                                         mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
+    #                                          query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+    #               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    #           """
+    #
+    #     # Iterate through each row in the DataFrame
+    #     for idx, row in df.iterrows():
+    #         # Define paths for qseq and sseq files
+    #         qseq_path = f"{self.gene}_qseq_{idx}.txt"
+    #         sseq_path = f"{self.gene}_sseq_{idx}.txt"
+    #
+    #         with open(qseq_path, 'w') as qf:
+    #             qf.write(row[17])
+    #         with open(sseq_path, 'w') as sf:
+    #             sf.write(row[18])
+    #
+    #         row_data = tuple(row[:17]) + (qseq_path, sseq_path)
+    #
+    #         cursor.execute(insert_query, row_data)
+    #
+    #     self.disconnect(commit=True)
 
     def execute_command(self, sql_command):
         self.connect()
         self.cursor.execute(sql_command)
         self.disconnect()
 
-    def save(self):
-        table_name = self.gene
-        csv_file = f"{self.gene}.csv"
-        self.insert_data_from_csv(table_name, csv_file)
+    # def save(self):
+    #     table_name = self.gene
+    #     csv_file = f"{self.gene}.csv"
+    #     self.insert_data_from_csv(table_name, csv_file)
 
-    def show_database_contents(self, table_name):
-        # Query to select all rows from the specified table
-        select_query = f"SELECT * FROM {table_name}"
+    def search_result_table_by_name(self, table_name):
+        self.connect()
+        self.cursor.execute(f"SELECT * FROM {table_name}")
+        rows = self.cursor.fetchall()
+        self.disconnect()
+        return rows
 
-        # Execute the query
-        cursor = self.mydb.cursor()
-        cursor.execute(select_query)
-
-        # Fetch all rows from the result set
-        rows = cursor.fetchall()
-
-        # Print column headers
-        print("Database Contents:")
-        print("-------------------")
-        print(
-            "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
-
-        # Print each row
-        for row in rows:
-            print("\t".join(str(col) for col in row))
-
-        cursor.close()
+        # # Print column headers
+        # print("Database Contents:")
+        # print("-------------------")
+        # print(
+        #     "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
+        #
+        # # Print each row
+        # for row in rows:
+        #     print("\t".join(str(col) for col in row))
 
     def add_row(self, table_name, row_data):
-        cursor = self.mydb.cursor()
+        self.connect()
         insert_query = f"""
                 INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, 
                 mismatches, gap_opens, q_start,q_end, s_start, s_end, evalue, bit_score, query_length, 
                 subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
             """
-        cursor.execute(insert_query, row_data)
-        self.mydb.commit()
-        cursor.close()
+        self.cursor.execute(insert_query, row_data)
+        self.disconnect(commit=True)
 
-    def delete_row(self, table_name, condition):
-        cursor = self.mydb.cursor()
-        delete = f""" DELETE FROM {table_name} WHERE {condition} 
-            """
-        cursor.execute(delete)
-        self.mydb.commit()
-        cursor.close()
+    def delete_row_from_result_table_by_condition(self, table_name, condition):
+        self.connect()
+        self.cursor.execute(f" DELETE FROM {table_name} WHERE {condition}")
+        self.disconnect(commit=True)
 
-    def update_row(self, table_name, updates, condition):
-        cursor = self.mydb.cursor()
-        update = f"UPDATE {table_name} SET {updates} WHERE {condition}"
-        cursor.execute(update)
-        self.mydb.commit()
-        cursor.close()
+    def update_result_table_row_by_condition(self, table_name, updates, condition):
+        self.connect()
+        self.cursor.execute(f"UPDATE {table_name} SET {updates} WHERE {condition}")
+        self.disconnect(commit=True)
 
-    def gene_search_body(self, gene_name):
-        cursor = self.mydb.cursor()
-        cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
+    def search_result_table_by_name(self, table_name):
+        self.connect()
+        query = """
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = %s 
+                AND table_name LIKE %s
+        """
 
-        table_names = []
-        for table in tables:
-            table_name = table[0]
-            table_names.append(table_name)
-
-        if gene_name in table_names:
-            search_query = f"SELECT * FROM {gene_name}"
-            cursor.execute(search_query)
-            rows = cursor.fetchall()
-
-            # Print column headers
-            print("Database Contents:")
-            print("-------------------")
-            print(
-                "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
-
-        else:
-            print(f"No table found for gene: {gene_name}")
-            rows = []
-
-        cursor.close()
+        self.cursor.execute(query, (self.db_info['database'], table_name))
+        rows = self.cursor.fetchall()
+        self.disconnect()
         return rows
+        #
+        #     # Print column headers
+        #     print("Database Contents:")
+        #     print("-------------------")
+        #     print(
+        #         "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
+        #
+        # else:
+        #     print(f"No table found for gene: {gene_name}")
+        #     rows = []
+        #
+        # cursor.close()
+        # return rows
 
-    def gene_search_by_name(self, gene_name):
+    def search_gene_by_name(self, gene_name):
         self.connect()
         self.cursor.execute("SELECT * FROM genes_sample_files WHERE name=%s", (gene_name))
         gene = self.cursor.fetchone()
-        gene = Gene(**gene)
+        gene = Gene(*gene)
         self.disconnect()
         return gene
 
-    def search_by_genome(self):
-        pass
+    def search_gene_by_id(self, id):
+        self.connect()
+        self.cursor.execute("SELECT * FROM genes_sample_files WHERE id=%s", (id))
+        gene = self.cursor.fetchone()
+        gene = Gene(*gene)
+        self.disconnect()
+        return gene
+
+    def search_genome_by_name(self, genome_name):
+        self.connect()
+        self.cursor.execute("SELECT * FROM genomes_sample_files WHERE name=%s", (genome_name))
+        genome = self.cursor.fetchone()
+        genome = WholeGenome(*genome)
+        self.disconnect()
+        return genome
+
+    def search_genome_by_id(self, id):
+        self.connect()
+        self.cursor.execute("SELECT * FROM genomes_sample_files WHERE id=%s", (id))
+        genome = self.cursor.fetchone()
+        genome = WholeGenome(*genome)
+        self.disconnect()
+        return genome
 
     def export_CSV(self, table_name, output_file):
         self.connect()
