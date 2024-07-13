@@ -1,41 +1,6 @@
-import subprocess
-from Bio import SeqIO
-import os
-from datetime import datetime
 import pandas as pd
 import mysql.connector
-
-
-class BLAST:
-    def __init__(self, WGS, gene):
-        self.WGS = WGS
-        self.gene = gene
-
-    def blast(self):
-        # Create BLAST database
-        blast_dir = "C:\\Users\\mrnaj\\PycharmProjects\\NCBI_project_2"
-        os.chdir(blast_dir)
-
-        result = subprocess.run(["makeblastdb", "-version"], capture_output=True, text=True)
-        print("makeblastdb version output:", result.stdout)
-        if result.stderr:
-            print("makeblastdb version error:", result.stderr)
-
-        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "WGS"], capture_output=True,
-                                text=True)
-        print("makeblastdb output:", result.stdout)
-        if result.stderr:
-            print("makeblastdb error:", result.stderr)
-
-        # Perform BLAST search
-        result = subprocess.run(
-            ["blastn", "-query", f"{self.gene}.fasta", "-db", "WGS", "-out", f"{self.gene}.csv", "-outfmt",
-             "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe qseq sseq"],
-            capture_output=True, text=True
-        )
-        print("blastn output:", result.stdout)
-        if result.stderr:
-            print("blastn error:", result.stderr)
+from ..entity.gene import *
 
 
 class DB:
@@ -49,14 +14,21 @@ class DB:
             self.mydb = mysql.connector.connect(
                 host=self.db_info['host'],
                 user=self.db_info['user'],
-                passwd=self.db_info['passwd'],
+                passwd=self.db_info['password'],
                 database=self.db_info['database']
             )
+            self.cursor = self.mydb.cursor()
             print("Successfully connected to the database.")
         except mysql.connector.Error as err:
             print(f"Error: {err}")
 
-    def create_table(self, table_name):
+    def disconnect(self, commit=False):
+        if commit:
+            self.mydb.commit()
+        self.cursor.close()
+        self.mydb.close()
+
+    def create_blast_result_table(self, table_name, result):
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -80,8 +52,15 @@ class DB:
             qseq_path VARCHAR(300),
             sseq_path VARCHAR(300)
         '''
+        self.connect()
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
-        self.execute(create_table_query)
+        add_query_command = f"""INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+        mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
+        query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path) VALUES(*{result})
+        """
+        self.cursor.execute(create_table_query)
+        self.cursor.execute(add_query_command)
+        self.disconnect(commit=True)
 
     def insert_data_from_csv(self, table_name, csv_file):
         # Read the CSV file
@@ -90,11 +69,11 @@ class DB:
         cursor = self.mydb.cursor()
 
         insert_query = f"""
-              INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
-                                        mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
-                                         query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-          """
+                  INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+                                            mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
+                                             query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+              """
 
         # Iterate through each row in the DataFrame
         for idx, row in df.iterrows():
@@ -111,14 +90,12 @@ class DB:
 
             cursor.execute(insert_query, row_data)
 
-        self.mydb.commit()
-        cursor.close()
+        self.disconnect(commit=True)
 
-    def execute(self, sql):
-        cursor = self.mydb.cursor()
-        cursor.execute(sql)
-        self.mydb.commit()
-        cursor.close()
+    def execute_command(self, sql_command):
+        self.connect()
+        self.cursor.execute(sql_command)
+        self.disconnect()
 
     def save(self):
         table_name = self.gene
@@ -151,11 +128,11 @@ class DB:
     def add_row(self, table_name, row_data):
         cursor = self.mydb.cursor()
         insert_query = f"""
-            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, 
-            mismatches, gap_opens, q_start,q_end, s_start, s_end, evalue, bit_score, query_length, 
-            subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
-        """
+                INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, 
+                mismatches, gap_opens, q_start,q_end, s_start, s_end, evalue, bit_score, query_length, 
+                subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
+            """
         cursor.execute(insert_query, row_data)
         self.mydb.commit()
         cursor.close()
@@ -163,7 +140,7 @@ class DB:
     def delete_row(self, table_name, condition):
         cursor = self.mydb.cursor()
         delete = f""" DELETE FROM {table_name} WHERE {condition} 
-        """
+            """
         cursor.execute(delete)
         self.mydb.commit()
         cursor.close()
@@ -197,48 +174,42 @@ class DB:
                 "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
 
         else:
-            print(f"No table found for gene: {gene}")
+            print(f"No table found for gene: {gene_name}")
             rows = []
 
         cursor.close()
         return rows
 
-    def gene_search(self, gene_name):
-        result_rows = gene.gene_search_body(gene_name)
-        for row in result_rows:
-            print(row)
+    def gene_search_by_name(self, gene_name):
+        self.connect()
+        self.cursor.execute("SELECT * FROM genes_sample_files WHERE name=%s", (gene_name))
+        gene = self.cursor.fetchone()
+        gene = Gene(**gene)
+        self.disconnect()
+        return gene
 
     def search_by_genome(self):
         pass
 
-    def search_by_gene_and_genome(self):
-        pass
-
     def export_CSV(self, table_name, output_file):
-        cursor = self.mydb.cursor()
+        self.connect()
         select_table = f"SELECT * FROM {table_name}"
-        cursor.execute(select_table)
-        rows = cursor.fetchall()
+        self.cursor.execute(select_table)
+        rows = self.cursor.fetchall()
         columns = []
-        for desc in cursor.description:
+        for desc in self.cursor.description:
             columns.append(desc[0])
 
-        cursor.close()
+        self.disconnect()
         df = pd.DataFrame(rows, columns=columns)
         df.to_csv(output_file, index=False)
 
-    def close_connection(self):
-        if self.mydb:
-            self.mydb.close()
-
-
-start_time = datetime.now()
 
 # information input:
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'passwd': 'mrnd181375',
+    'password': 'mrnd181375',
     'database': 'wgs'
 }
 

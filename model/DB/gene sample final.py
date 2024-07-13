@@ -36,6 +36,8 @@ def create_table_and_insert_data(folder_path):
             create_database(cursor)
 
             # Create table query
+            # todo: change file_name to gene_name in position 2 instead of column 3
+
             create_table_query = '''
             CREATE TABLE IF NOT EXISTS genes_sample_files (
                 id INT AUTO_INCREMENT PRIMARY KEY,
