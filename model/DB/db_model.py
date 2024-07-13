@@ -61,10 +61,10 @@ class DB:
         """
 
         self.cursor.execute(create_table_query)
-        self.cursor.execute(add_query_command)
+        self.cursor.execute(add_query_command, *result)
         self.disconnect(commit=True)
 
-    #
+
     # def insert_data_from_csv(self, table_name, csv_file):
     #     # Read the CSV file
     #     df = pd.read_csv(csv_file, header=None)
@@ -94,6 +94,42 @@ class DB:
     #         cursor.execute(insert_query, row_data)
     #
     #     self.disconnect(commit=True)
+
+    def add_cutoff_column(self, table_name):
+        self.connect()
+        alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN cutoff TINYINT"
+        update_query = f"""UPDATE {table_name} SET cutoff = CASE
+                        WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 THEN 0
+                        ELSE 1
+                    END
+                """
+        self.cursor.execute(alter_table_query)
+        self.cursor.execute(update_query)
+        print(f"Column 'cutoff' added to {table_name} table.")
+        self.disconnect(commit=True)
+
+    # def show_database_contents(self, table_name):
+    #     # Query to select all rows from the specified table
+    #     select_query = f"SELECT * FROM {table_name}"
+    #
+    #     # Execute the query
+    #     cursor = self.mydb.cursor()
+    #     cursor.execute(select_query)
+    #
+    #     # Fetch all rows from the result set
+    #     rows = cursor.fetchall()
+    #
+    #     # Print column headers
+    #     print("Database Contents:")
+    #     print("-------------------")
+    #     columns = [desc[0] for desc in cursor.description]
+    #     print("\t".join(columns))
+    #
+    #     # Print each row
+    #     for row in rows:
+    #         print("\t".join(str(col) for col in row))
+    #
+    #     cursor.close()
 
     def execute_command(self, sql_command):
         self.connect()
@@ -215,28 +251,3 @@ class DB:
         df = pd.DataFrame(rows, columns=columns)
         df.to_csv(output_file, index=False)
 
-
-# information input:
-db_info = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'mrnd181375',
-    'database': 'wgs'
-}
-
-WGS = "combined.fasta"
-Gene = "mepa"
-
-# run functions for testing:
-blast_gene = BLAST(WGS, Gene)
-gene = DB(Gene, db_info)
-
-blast_gene.blast()
-gene.connect()
-gene.create_table(Gene)
-gene.save()
-gene.show_database_contents(Gene)
-
-end_time = datetime.now()
-print()
-print('Duration: {}'.format(end_time - start_time))
