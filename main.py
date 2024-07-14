@@ -22,9 +22,8 @@ db = DB(Gene, db_info)
 
 blast.blast()
 #
-# db.create_table(Gene)
-# db.save()
-# db.show_database_contents(Gene)
+db.save()
+#db.show_database_contents(Gene)
 
 end_time = datetime.now()
 print()

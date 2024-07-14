@@ -29,7 +29,7 @@ class DB:
         self.cursor.close()
         self.mydb.close()
 
-    def create_blast_result_table(self, table_name, result):
+    def create_and_insert_blast_results(self, table_name, csv_file):
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -53,48 +53,40 @@ class DB:
             qseq_path VARCHAR(300),
             sseq_path VARCHAR(300)
         '''
-        self.connect()
+
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
-        add_query_command = f"""INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
-        mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
-        query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        insert_query = f"""
+            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+                                      mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
+                                      query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
+        self.connect()
         self.cursor.execute(create_table_query)
-        self.cursor.execute(add_query_command, *result)
+
+        # Read the CSV file
+        df = pd.read_csv(csv_file, header=None)
+
+        # Iterate through each row in the DataFrame
+        for idx, row in df.iterrows():
+            # Define paths for qseq and sseq files
+            qseq_path = f"{self.gene}_qseq_{idx}.txt"
+            sseq_path = f"{self.gene}_sseq_{idx}.txt"
+
+            # Write sequences to files
+            with open(qseq_path, 'w') as qf:
+                qf.write(row[17])
+            with open(sseq_path, 'w') as sf:
+                sf.write(row[18])
+
+            # Insert row into the table
+
+            row_data = tuple(row[:17]) + (qseq_path, sseq_path)
+            self.cursor.execute(insert_query, row_data)
+
+        # Disconnect from the database
         self.disconnect(commit=True)
-
-
-    # def insert_data_from_csv(self, table_name, csv_file):
-    #     # Read the CSV file
-    #     df = pd.read_csv(csv_file, header=None)
-    #
-    #     cursor = self.mydb.cursor()
-    #
-    #     insert_query = f"""
-    #               INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
-    #                                         mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
-    #                                          query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-    #               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    #           """
-    #
-    #     # Iterate through each row in the DataFrame
-    #     for idx, row in df.iterrows():
-    #         # Define paths for qseq and sseq files
-    #         qseq_path = f"{self.gene}_qseq_{idx}.txt"
-    #         sseq_path = f"{self.gene}_sseq_{idx}.txt"
-    #
-    #         with open(qseq_path, 'w') as qf:
-    #             qf.write(row[17])
-    #         with open(sseq_path, 'w') as sf:
-    #             sf.write(row[18])
-    #
-    #         row_data = tuple(row[:17]) + (qseq_path, sseq_path)
-    #
-    #         cursor.execute(insert_query, row_data)
-    #
-    #     self.disconnect(commit=True)
-
     def add_cutoff_column(self, table_name):
         self.connect()
         alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN cutoff TINYINT"
@@ -136,10 +128,10 @@ class DB:
         self.cursor.execute(sql_command)
         self.disconnect()
 
-    # def save(self):
-    #     table_name = self.gene
-    #     csv_file = f"{self.gene}.csv"
-    #     self.insert_data_from_csv(table_name, csv_file)
+    def save(self):
+        table_name = self.gene
+        csv_file = f"{self.gene}.csv"
+        self.create_and_insert_blast_results(table_name, csv_file)
 
     def search_result_table_by_name(self, table_name):
         self.connect()
