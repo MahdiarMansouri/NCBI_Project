@@ -23,6 +23,7 @@ db = DB(Gene, db_info)
 blast.blast()
 #
 db.save()
+db.add_cutoff_column(Gene)
 #db.show_database_contents(Gene)
 
 end_time = datetime.now()
