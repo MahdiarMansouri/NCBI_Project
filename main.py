@@ -9,19 +9,20 @@ start_time = datetime.now()
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'mrnd181375',
+    'password': 'root123',
     'database': 'wgs'
 }
 
-WGS = "combined.fasta"
-Gene = "mepa"
+WGS = 'combined.fasta'
+Gene = 'mepA'
 
 # run functions for testing:
-blast = BLAST(WGS, Gene)
 db = DB(Gene, db_info)
+db.search_genome_by_id(3)
 
+blast = BLAST(WGS, Gene)
 blast.blast()
-#
+
 db.save()
 db.add_cutoff_column(Gene)
 #db.show_database_contents(Gene)
