@@ -29,7 +29,7 @@ class DB:
         self.cursor.close()
         self.mydb.close()
 
-    def create_blast_result_table(self, table_name, csv_file):
+    def create_and_insert_blast_results(self, table_name, csv_file):
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -53,10 +53,13 @@ class DB:
             qseq_path VARCHAR(300),
             sseq_path VARCHAR(300)
         '''
+
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
-        insert_query = f"""INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
-        mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
-        query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        insert_query = f"""
+            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+                                      mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
+                                      query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
         self.connect()
@@ -98,37 +101,55 @@ class DB:
         print(f"Column 'cutoff' added to {table_name} table.")
         self.disconnect(commit=True)
 
-    def show_table_name_contents(self, table_name):
-        # Query to select all rows from the specified table
-        select_query = f"SELECT * FROM {table_name}"
-
-        # Execute the query
-        self.cursor.execute(select_query)
-
-        # Fetch all rows from the result set
-        rows = self.cursor.fetchall()
-
-        # Print column headers
-        print("Database Contents:")
-        print("-------------------")
-        columns = [desc[0] for desc in self.cursor.description]
-        print("\t".join(columns))
-
-        # Print each row
-        for row in rows:
-            print("\t".join(str(col) for col in row))
-
-        self.disconnect()
-
-    def save(self):
-        table_name = self.gene
-        csv_file = f'{self.gene}.csv'
-        self.create_blast_result_table(table_name, csv_file)
+    ### def show_database_contents(self, table_name):
+    #     # Query to select all rows from the specified table
+    #     select_query = f"SELECT * FROM {table_name}"
+    #
+    #     # Execute the query
+    #     cursor = self.mydb.cursor()
+    #     cursor.execute(select_query)
+    #
+    #     # Fetch all rows from the result set
+    #     rows = cursor.fetchall()
+    #
+    #     # Print column headers
+    #     print("Database Contents:")
+    #     print("-------------------")
+    #     columns = [desc[0] for desc in cursor.description]
+    #     print("\t".join(columns))
+    #
+    #     # Print each row
+    #     for row in rows:
+    #         print("\t".join(str(col) for col in row))
+    #
+    #     cursor.close()
 
     def execute_command(self, sql_command):
         self.connect()
         self.cursor.execute(sql_command)
         self.disconnect()
+
+    def save(self):
+        table_name = self.gene
+        csv_file = f"{self.gene}.csv"
+        self.create_and_insert_blast_results(table_name, csv_file)
+
+    def search_result_table_by_name(self, table_name):
+        self.connect()
+        self.cursor.execute(f"SELECT * FROM {table_name}")
+        rows = self.cursor.fetchall()
+        self.disconnect()
+        return rows
+
+        # # Print column headers
+        # print("Database Contents:")
+        # print("-------------------")
+        # print(
+        #     "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
+        #
+        # # Print each row
+        # for row in rows:
+        #     print("\t".join(str(col) for col in row))
 
     def add_row(self, table_name, row_data):
         self.connect()
