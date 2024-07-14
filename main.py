@@ -13,14 +13,13 @@ db_info = {
     'database': 'wgs'
 }
 
-WGS = 'combined.fasta'
-Gene = 'mepA'
+WGS = "combined.fasta"
+Gene = "mepa"
 
 # run functions for testing:
-db = DB(Gene, db_info)
-db.search_genome_by_id(3)
-
 blast = BLAST(WGS, Gene)
+db = DB(Gene, db_info)
+
 blast.blast()
 
 db.save()
