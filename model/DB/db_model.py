@@ -231,25 +231,29 @@ class DB:
         self.disconnect()
         return genome
 
-    def export_CSV(self, table_name, output_file):
+    def export_table(self, table_name, output_file, file_format):
         self.connect()
-        select_table = f"SELECT * FROM {table_name}"
-        self.cursor.execute(select_table)
-        rows = self.cursor.fetchall()
-        columns = []
-        for desc in self.cursor.description:
-            columns.append(desc[0])
+        select_query = f"SELECT * FROM {table_name}"
 
+        # Execute the query
+        df = pd.read_sql_query(select_query, self.mydb, index_col='id')
         self.disconnect()
-        df = pd.DataFrame(rows, columns=columns)
-        df.to_csv(output_file, index=False)
+
+        if file_format == 'csv':
+            df.to_csv(f"{output_file}.csv", index=False)
+        elif file_format == 'excel':
+            df.to_excel(f"{output_file}.xlsx", index=False)
+        elif file_format == 'json':
+            df.to_json(f"{output_file}.json", orient='records')
 
     def create_combined_wgs(self, id_list):
-        self.connect()
         output_file = f"combined_wgs.fasta"
         file_contents = []
         for id in id_list:
+            print('-' * 10)
+            print(id)
             genome = self.search_genome_by_id(id)
+            print(genome)
 
             with open(genome.file_path, 'r') as file:
                 lines = file.readlines()
