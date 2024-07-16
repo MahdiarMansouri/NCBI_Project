@@ -13,12 +13,21 @@ db_info = {
     'database': 'wgs'
 }
 
-WGS = "combined.fasta"
+WGS = "combined_wgs.fasta"
 Gene = "mepa"
 
 # run functions for testing:
 blast = BLAST(WGS, Gene)
 db = DB(Gene, db_info)
+
+# gene = db.search_genome_by_id(2)
+# print(gene)
+# for genome in genomes_list:
+#     print(genome)
+
+# db.show_database_contents('mepa')
+
+# db.create_combined_wgs([i for i in range(1, 10)])
 
 blast.blast()
 

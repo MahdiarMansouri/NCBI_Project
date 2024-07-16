@@ -101,28 +101,19 @@ class DB:
         print(f"Column 'cutoff' added to {table_name} table.")
         self.disconnect(commit=True)
 
-    ### def show_database_contents(self, table_name):
-    #     # Query to select all rows from the specified table
-    #     select_query = f"SELECT * FROM {table_name}"
-    #
-    #     # Execute the query
-    #     cursor = self.mydb.cursor()
-    #     cursor.execute(select_query)
-    #
-    #     # Fetch all rows from the result set
-    #     rows = cursor.fetchall()
-    #
-    #     # Print column headers
-    #     print("Database Contents:")
-    #     print("-------------------")
-    #     columns = [desc[0] for desc in cursor.description]
-    #     print("\t".join(columns))
-    #
-    #     # Print each row
-    #     for row in rows:
-    #         print("\t".join(str(col) for col in row))
-    #
-    #     cursor.close()
+    def show_database_contents(self, table_name):
+        # Query to select all rows from the specified table
+        self.connect()
+        select_query = f"SELECT * FROM {table_name}"
+
+        # Execute the query
+        df = pd.read_sql_query(select_query, self.mydb, index_col='id')
+
+        # To show all columns
+        # pd.set_option('display.max_columns', None)
+
+        self.disconnect()
+        return df
 
     def execute_command(self, sql_command):
         self.connect()
@@ -140,16 +131,6 @@ class DB:
         rows = self.cursor.fetchall()
         self.disconnect()
         return rows
-
-        # # Print column headers
-        # print("Database Contents:")
-        # print("-------------------")
-        # print(
-        #     "query_id\tsubject_id\tidentity\talignment_length\tmismatches\tgap_opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit_score\tquery_length\tsubject_length\tsubject_strand\tquery_frame\tsbjct_frame\tqseq_path\tsseq_path")
-        #
-        # # Print each row
-        # for row in rows:
-        #     print("\t".join(str(col) for col in row))
 
     def add_row(self, table_name, row_data):
         self.connect()
@@ -188,11 +169,15 @@ class DB:
 
     def search_gene_by_name(self, gene_name):
         self.connect()
-        self.cursor.execute("SELECT * FROM genes_sample_files WHERE name=%s", [gene_name])
-        gene = self.cursor.fetchone()
-        gene = Gene(*gene)
+        self.cursor.execute("SELECT * FROM genes_sample_files WHERE file_name LIKE %s", [f'%{gene_name}%'])
+        genes = self.cursor.fetchall()
+        genes_list = []
+        for gene in genes:
+            gene = Gene(*gene)
+            genes_list.append(gene)
+
         self.disconnect()
-        return gene
+        return genes_list
 
     def search_gene_by_id(self, id):
         self.connect()
@@ -204,11 +189,15 @@ class DB:
 
     def search_genome_by_name(self, genome_name):
         self.connect()
-        self.cursor.execute("SELECT * FROM genomes_sample_files WHERE name=%s", [genome_name])
-        genome = self.cursor.fetchone()
-        genome = WholeGenome(*genome)
+        self.cursor.execute("SELECT * FROM genomes_sample_files WHERE file_name LIKE %s", [f'%{genome_name}%'])
+        genomes = self.cursor.fetchall()
+        genomes_list = []
+        for genome in genomes:
+            genome = WholeGenome(*genome)
+            genomes_list.append(genome)
+
         self.disconnect()
-        return genome
+        return genomes_list
 
     def search_genome_by_id(self, id):
         self.connect()
@@ -230,3 +219,26 @@ class DB:
         self.disconnect()
         df = pd.DataFrame(rows, columns=columns)
         df.to_csv(output_file, index=False)
+
+    def create_combined_wgs(self, id_list):
+        self.connect()
+        output_file = f"combined_wgs.fasta"
+        file_contents = []
+        for id in id_list:
+            genome = self.search_genome_by_id(id)
+
+            with open(genome.file_path, 'r') as file:
+                lines = file.readlines()
+                lines_with_newline = [line.rstrip('\n') + '\n' for line in lines]
+                for line in lines_with_newline:
+                    file_contents.append(line)
+
+        with open(output_file, 'w') as file:
+            file.writelines(file_contents)
+
+
+
+
+
+
+

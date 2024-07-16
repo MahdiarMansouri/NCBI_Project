@@ -8,9 +8,6 @@ class BLAST:
 
     def blast(self):
         # Create BLAST database
-        blast_dir = "D:\\programming\\NCBI_Project"
-        os.chdir(blast_dir)
-
         result = subprocess.run(["makeblastdb", "-version"], capture_output=True, text=True)
         print("makeblastdb version output:", result.stdout)
         if result.stderr:
@@ -31,4 +28,8 @@ class BLAST:
         print("blastn output:", result.stdout)
         if result.stderr:
             print("blastn error:", result.stderr)
+
+
+
+
 

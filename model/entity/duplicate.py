@@ -13,7 +13,7 @@ class DuplicateCheck:
             self.mydb = mysql.connector.connect(
                 host=self.db_info['host'],
                 user=self.db_info['user'],
-                passwd=self.db_info['passwd'],
+                passwd=self.db_info['password'],
                 database=self.db_info['database']
             )
             print("Successfully connected to the database.")
@@ -171,7 +171,7 @@ class DuplicateCheck:
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'passwd': 'mrnd181375',
+    'password': 'root123',
     'database': 'wgs'
 }
 Gene = "mepa"
