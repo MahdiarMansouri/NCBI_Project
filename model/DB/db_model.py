@@ -167,6 +167,18 @@ class DB:
         self.disconnect()
         return rows
 
+    def search_all_genes(self):
+        self.connect()
+        self.cursor.execute("SELECT * FROM genes_sample_files")
+        genes = self.cursor.fetchall()
+        genes_list = []
+        for gene in genes:
+            gene = Gene(*gene)
+            genes_list.append(gene)
+
+        self.disconnect()
+        return genes_list
+
     def search_gene_by_name(self, gene_name):
         self.connect()
         self.cursor.execute("SELECT * FROM genes_sample_files WHERE file_name LIKE %s", [f'%{gene_name}%'])
@@ -186,6 +198,18 @@ class DB:
         gene = Gene(*gene)
         self.disconnect()
         return gene
+
+    def search_all_genomes(self):
+        self.connect()
+        self.cursor.execute("SELECT * FROM genomes_sample_files")
+        genomes = self.cursor.fetchall()
+        genomes_list = []
+        for genome in genomes:
+            genome = WholeGenome(*genome)
+            genomes_list.append(genome)
+
+        self.disconnect()
+        return genomes_list
 
     def search_genome_by_name(self, genome_name):
         self.connect()
