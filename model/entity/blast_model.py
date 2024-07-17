@@ -21,15 +21,10 @@ class BLAST:
 
         # Perform BLAST search
         result = subprocess.run(
-            ["blastn", "-query", f"{self.gene}.fasta", "-db", "WGS", "-out", f"{self.gene}.csv", "-outfmt",
+            ["blastn", "-query", f"{self.gene}", "-db", "WGS", "-out", f"{self.gene}.csv", "-outfmt",
              "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe qseq sseq"],
             capture_output=True, text=True
         )
         print("blastn output:", result.stdout)
         if result.stderr:
             print("blastn error:", result.stderr)
-
-
-
-
-

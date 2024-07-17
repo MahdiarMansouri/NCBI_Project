@@ -19,6 +19,17 @@ Gene = "mepa"
 # run functions for testing:
 db = DB(Gene, db_info)
 
+genomes = db.search_all_genomes()
+db.create_combined_wgs([i for i in range(1, len(genomes))])
+
+genes_list = db.search_all_genes()
+
+# for gene in genes_list:
+#     blast = BLAST(WGS, gene.file_path)
+#     blast.blast()
+
+
+
 # gene = db.search_genome_by_id(1)
 # print(gene)
 # for genome in genomes_list:
@@ -26,14 +37,10 @@ db = DB(Gene, db_info)
 
 # db.show_database_contents('mepa')
 
-# genomes = db.search_all_genomes()
-# db.create_combined_wgs([i for i in range(1, len(genomes))])
 
-db.export_table('mepa', 'mepa', 'excel')
+# db.export_table('mepa', 'mepa', 'excel')
 
 
-blast = BLAST(WGS, Gene)
-# blast.blast()
 #
 # db.save()
 # db.add_cutoff_column(Gene)

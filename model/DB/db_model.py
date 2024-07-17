@@ -250,10 +250,10 @@ class DB:
         output_file = f"combined_wgs.fasta"
         file_contents = []
         for id in id_list:
-            print('-' * 10)
             print(id)
             genome = self.search_genome_by_id(id)
             print(genome)
+            print('-' * 10)
 
             with open(genome.file_path, 'r') as file:
                 lines = file.readlines()
