@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import mysql.connector
 from ..entity.gene import *
@@ -33,7 +35,7 @@ class DB:
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
-            query_id VARCHAR(100),
+            query_id NVARCHAR(100),
             subject_id VARCHAR(100),
             identity FLOAT,
             alignment_length INT,
@@ -54,7 +56,7 @@ class DB:
             sseq_path VARCHAR(300)
         '''
 
-        create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
+        create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
         insert_query = f"""
             INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
                                       mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
@@ -66,13 +68,19 @@ class DB:
         self.cursor.execute(create_table_query)
 
         # Read the CSV file
-        df = pd.read_csv(csv_file, header=None)
+        df = pd.read_csv(f'{csv_file}.csv', header=None)
+
+        folder_path = f"{self.gene}_seq_folder"
+        os.makedirs(folder_path, exist_ok=True)
 
         # Iterate through each row in the DataFrame
         for idx, row in df.iterrows():
             # Define paths for qseq and sseq files
             qseq_path = f"{self.gene}_qseq_{idx}.txt"
             sseq_path = f"{self.gene}_sseq_{idx}.txt"
+
+            qseq_path = os.path.join(folder_path, qseq_path)
+            sseq_path = os.path.join(folder_path, sseq_path)
 
             # Write sequences to files
             with open(qseq_path, 'w') as qf:
@@ -90,15 +98,18 @@ class DB:
 
     def add_cutoff_column(self, table_name):
         self.connect()
-        alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN cutoff TINYINT"
+        self.cursor.execute(f"SHOW COLUMNS FROM {table_name} LIKE 'cutoff'")
+        exists = self.cursor.fetchone()
+        if not exists:
+            alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN cutoff TINYINT"
+            self.cursor.execute(alter_table_query)
         update_query = f"""UPDATE {table_name} SET cutoff = CASE
-                        WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 THEN 0
-                        ELSE 1
-                    END
-                """
-        self.cursor.execute(alter_table_query)
+                                    WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 THEN 0
+                                    ELSE 1
+                                END
+                            """
         self.cursor.execute(update_query)
-        print(f"Column 'cutoff' added to {table_name} table.")
+        print(f"Column 'cutoff' updated in {table_name} table.")
         self.disconnect(commit=True)
 
     def show_database_contents(self, table_name):
@@ -169,7 +180,7 @@ class DB:
 
     def search_all_genes(self):
         self.connect()
-        self.cursor.execute("SELECT * FROM genes_sample_files")
+        self.cursor.execute("SELECT * FROM gene_files")
         genes = self.cursor.fetchall()
         genes_list = []
         for gene in genes:
@@ -181,7 +192,7 @@ class DB:
 
     def search_gene_by_name(self, gene_name):
         self.connect()
-        self.cursor.execute("SELECT * FROM genes_sample_files WHERE file_name LIKE %s", [f'%{gene_name}%'])
+        self.cursor.execute("SELECT * FROM gene_files WHERE file_name LIKE %s", [f'%{gene_name}%'])
         genes = self.cursor.fetchall()
         genes_list = []
         for gene in genes:
@@ -193,7 +204,7 @@ class DB:
 
     def search_gene_by_id(self, id):
         self.connect()
-        self.cursor.execute("SELECT * FROM genes_sample_files WHERE id=%s", [id])
+        self.cursor.execute("SELECT * FROM gene_files WHERE id=%s", [id])
         gene = self.cursor.fetchone()
         gene = Gene(*gene)
         self.disconnect()
@@ -201,7 +212,7 @@ class DB:
 
     def search_all_genomes(self):
         self.connect()
-        self.cursor.execute("SELECT * FROM genomes_sample_files")
+        self.cursor.execute("SELECT * FROM genome_files")
         genomes = self.cursor.fetchall()
         genomes_list = []
         for genome in genomes:
@@ -213,7 +224,7 @@ class DB:
 
     def search_genome_by_name(self, genome_name):
         self.connect()
-        self.cursor.execute("SELECT * FROM genomes_sample_files WHERE file_name LIKE %s", [f'%{genome_name}%'])
+        self.cursor.execute("SELECT * FROM genome_files WHERE file_name LIKE %s", [f'%{genome_name}%'])
         genomes = self.cursor.fetchall()
         genomes_list = []
         for genome in genomes:
@@ -225,7 +236,7 @@ class DB:
 
     def search_genome_by_id(self, id):
         self.connect()
-        self.cursor.execute("SELECT * FROM genomes_sample_files WHERE id=%s", [id])
+        self.cursor.execute("SELECT * FROM genome_files WHERE id=%s", [id])
         genome = self.cursor.fetchone()
         genome = WholeGenome(*genome)
         self.disconnect()
@@ -248,21 +259,22 @@ class DB:
 
     def create_combined_wgs(self, id_list):
         output_file = f"combined_wgs.fasta"
-        file_contents = []
-        for id in id_list:
-            print(id)
-            genome = self.search_genome_by_id(id)
-            print(genome)
-            print('-' * 10)
+        if not os.path.exists(output_file):
+            file_contents = []
+            for id in id_list:
+                print(id)
+                genome = self.search_genome_by_id(id)
+                print(genome)
+                print('-' * 10)
 
-            with open(genome.file_path, 'r') as file:
-                lines = file.readlines()
-                lines_with_newline = [line.rstrip('\n') + '\n' for line in lines]
-                for line in lines_with_newline:
-                    file_contents.append(line)
+                with open(genome.file_path, 'r') as file:
+                    lines = file.readlines()
+                    lines_with_newline = [line.rstrip('\n') + '\n' for line in lines]
+                    for line in lines_with_newline:
+                        file_contents.append(line)
 
-        with open(output_file, 'w') as file:
-            file.writelines(file_contents)
+            with open(output_file, 'w') as file:
+                file.writelines(file_contents)
 
 
 

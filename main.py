@@ -5,7 +5,7 @@ from model.entity.blast_model import BLAST
 
 start_time = datetime.now()
 
-# information input:
+# Database information:
 db_info = {
     'host': 'localhost',
     'user': 'root',
@@ -16,35 +16,26 @@ db_info = {
 WGS = "combined_wgs.fasta"
 Gene = "mepa"
 
-# run functions for testing:
 db = DB(Gene, db_info)
 
+# Create 'combined_wgs.fasta' file for blast
 genomes = db.search_all_genomes()
 db.create_combined_wgs([i for i in range(1, len(genomes))])
 
+# Create a list of genes from database for blast
 genes_list = db.search_all_genes()
 
-# for gene in genes_list:
-#     blast = BLAST(WGS, gene.file_path)
-#     blast.blast()
+# Loop through genes and blast and create table of each one and export excel from the results
+for gene in genes_list:
+    print('-' * 20)
+    print('name: ', gene.name)
+    blast = BLAST(WGS, gene)
+    blast.blast()
+    db = DB(gene.name, db_info)
+    db.create_and_insert_blast_results(gene.name, gene.name)
+    db.add_cutoff_column(gene.name)
+    db.export_table(gene.name, gene.name, 'excel')
 
-
-
-# gene = db.search_genome_by_id(1)
-# print(gene)
-# for genome in genomes_list:
-#     print(genome)
-
-# db.show_database_contents('mepa')
-
-
-# db.export_table('mepa', 'mepa', 'excel')
-
-
-#
-# db.save()
-# db.add_cutoff_column(Gene)
-#db.show_database_contents(Gene)
 
 end_time = datetime.now()
 print()

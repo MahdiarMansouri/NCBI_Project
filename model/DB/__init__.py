@@ -9,6 +9,7 @@ def get_files(folder_path):
     for root, dirs, files in os.walk(folder_path):
         for file in files:
             name = file.split('.')[0]
+            name = name.replace(" ", "")
             file_path = os.path.join(root, file)
             file_details.append((name, file_path, file))
     return file_details

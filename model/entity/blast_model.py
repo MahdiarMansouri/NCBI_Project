@@ -4,16 +4,12 @@ import os
 class BLAST:
     def __init__(self, WGS, gene):
         self.WGS = WGS
-        self.gene = gene
+        self.gene_name = gene.name
+        self.gene_path = gene.file_path
 
     def blast(self):
         # Create BLAST database
-        result = subprocess.run(["makeblastdb", "-version"], capture_output=True, text=True)
-        print("makeblastdb version output:", result.stdout)
-        if result.stderr:
-            print("makeblastdb version error:", result.stderr)
-
-        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "WGS"], capture_output=True,
+        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "wgs\WGS"], capture_output=True,
                                 text=True)
         print("makeblastdb output:", result.stdout)
         if result.stderr:
@@ -21,7 +17,7 @@ class BLAST:
 
         # Perform BLAST search
         result = subprocess.run(
-            ["blastn", "-query", f"{self.gene}", "-db", "WGS", "-out", f"{self.gene}.csv", "-outfmt",
+            ["blastn", "-query", f"{self.gene_path}", "-db", "wgs\WGS", "-out", f"{self.gene_name}.csv", "-outfmt",
              "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe qseq sseq"],
             capture_output=True, text=True
         )
