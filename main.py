@@ -37,6 +37,7 @@ for gene in genes_list:
     db.export_table(gene.name, gene.name, 'excel')
 
 
+
 end_time = datetime.now()
 print()
 print('Duration: {}'.format(end_time - start_time))
