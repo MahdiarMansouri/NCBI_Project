@@ -31,7 +31,20 @@ class DB:
         self.cursor.close()
         self.mydb.close()
 
+    def table_exists(self, table_name):
+        self.cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+        result = self.cursor.fetchone()
+        return result is not None
+
     def create_and_insert_blast_results(self, table_name, csv_file):
+        self.connect()
+
+        # Check if the table already exists
+        if self.table_exists(table_name):
+            print(f"Table '{table_name}' already exists. Skipping creation and insertion.")
+            self.disconnect()
+            return
+
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -89,7 +102,6 @@ class DB:
                 sf.write(row[18])
 
             # Insert row into the table
-
             row_data = tuple(row[:17]) + (qseq_path, sseq_path)
             self.cursor.execute(insert_query, row_data)
 
