@@ -2,6 +2,7 @@ import mysql.connector
 import subprocess
 import os
 
+
 class DuplicateCheck:
     def __init__(self, gene, db_info):
         self.gene = gene
@@ -72,7 +73,8 @@ class DuplicateCheck:
             return []
 
         # Construct and print the BLAST command for debugging
-        blast_command = ["blastn", "-query", seq1_path, "-subject", seq2_path, "-outfmt", "10 pident qlen slen qstart qend sstart send"]
+        blast_command = ["blastn", "-query", seq1_path, "-subject", seq2_path, "-outfmt",
+                         "10 pident qlen slen qstart qend sstart send"]
         print(f"Running BLAST command: {' '.join(blast_command)}")
 
         result = subprocess.run(blast_command, capture_output=True, text=True)
@@ -139,6 +141,12 @@ class DuplicateCheck:
                     self.mydb.commit()
                     cursor.close()
 
+    def process_duplicates(self):
+        self.connect()
+        self.add_duplicate_column(self.gene)
+        self.update_duplicate_column(self.gene)
+        self.show_database_contents(self.gene)
+
     def show_database_contents(self, table_name):
         # Query to select all rows from the specified table
         select_query = f"SELECT * FROM {table_name}"
@@ -161,25 +169,3 @@ class DuplicateCheck:
             print("\t".join(str(col) for col in row))
 
         cursor.close()
-
-    def close_connection(self):
-        if self.mydb:
-            self.mydb.close()
-
-
-# Information input
-db_info = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'root123',
-    'database': 'wgs'
-}
-Gene = "mepa"
-
-# Run functions for checking duplicates
-duplicate_checker = DuplicateCheck(Gene, db_info)
-duplicate_checker.connect()
-duplicate_checker.add_duplicate_column(Gene)
-duplicate_checker.update_duplicate_column(Gene)
-duplicate_checker.show_database_contents(Gene)
-duplicate_checker.close_connection()
