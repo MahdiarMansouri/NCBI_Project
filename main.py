@@ -26,6 +26,7 @@ db.create_combined_wgs([i for i in range(1, len(genomes))])
 
 # Create a list of genes from database for blast
 genes_list = db.search_all_genes()
+output_file = 'gene_analysis_results.xlsx'
 
 # Loop through genes and blast and create table of each one and export excel from the results
 for gene in genes_list:
@@ -39,7 +40,7 @@ for gene in genes_list:
     duplicate_checker = DuplicateCheck(gene.name, db_info)
     duplicate_checker.process_duplicates()
     analysis = Analysis(db_info)
-    analysis.process_analysis()
+    analysis.process_analysis(output_file)
     db.export_table(gene.name, gene.name, 'excel')
 
 
