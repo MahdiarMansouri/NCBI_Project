@@ -36,7 +36,7 @@ class DB:
         result = self.cursor.fetchone()
         return result is not None
 
-    def create_and_insert_blast_results(self, table_name, csv_file):
+    def create_and_insert_blast_results(self, name_list, table_name, csv_file):
         self.connect()
 
         # Check if the table already exists
@@ -48,8 +48,9 @@ class DB:
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
+            genome_name NVARCHAR(20),
             query_id NVARCHAR(100),
-            subject_id VARCHAR(100),
+            subject_id NVARCHAR(100),
             identity FLOAT,
             alignment_length INT,
             mismatches INT,
@@ -62,19 +63,19 @@ class DB:
             bit_score FLOAT,
             query_length INT,
             subject_length INT,
-            subject_strand VARCHAR(20),
+            subject_strand NVARCHAR(20),
             query_frame INT,
             sbjct_frame INT,
-            qseq_path VARCHAR(300),
-            sseq_path VARCHAR(300)
+            qseq_path NVARCHAR(300),
+            sseq_path NVARCHAR(300)
         '''
 
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
         insert_query = f"""
-            INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length,
+            INSERT INTO {table_name} (genome_name, query_id, subject_id, identity, alignment_length,
                                       mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
                                       query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
         self.connect()
@@ -89,8 +90,8 @@ class DB:
         # Iterate through each row in the DataFrame
         for idx, row in df.iterrows():
             # Define paths for qseq and sseq files
-            qseq_path = f"{self.gene}_qseq_{idx}.txt"
-            sseq_path = f"{self.gene}_sseq_{idx}.txt"
+            qseq_path = f"{self.gene}_qseq_{idx}.fasta"
+            sseq_path = f"{self.gene}_sseq_{idx}.fasta"
 
             qseq_path = os.path.join(folder_path, qseq_path)
             sseq_path = os.path.join(folder_path, sseq_path)
@@ -102,7 +103,7 @@ class DB:
                 sf.write(row[18])
 
             # Insert row into the table
-            row_data = tuple(row[:17]) + (qseq_path, sseq_path)
+            row_data = tuple(name_list[idx], (row[:17]) ,qseq_path, sseq_path)
             self.cursor.execute(insert_query, row_data)
 
         # Disconnect from the database
@@ -158,10 +159,10 @@ class DB:
     def add_row(self, table_name, row_data):
         self.connect()
         insert_query = f"""
-                INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, 
+                INSERT INTO {table_name} (genome_name, query_id, subject_id, identity, alignment_length, 
                 mismatches, gap_opens, q_start,q_end, s_start, s_end, evalue, bit_score, query_length, 
                 subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
             """
         self.cursor.execute(insert_query, row_data)
         self.disconnect(commit=True)
@@ -271,12 +272,14 @@ class DB:
 
     def create_combined_wgs(self, id_list):
         output_file = f"combined_wgs.fasta"
+        name_list = []
         if not os.path.exists(output_file):
             file_contents = []
             for id in id_list:
                 print(id)
                 genome = self.search_genome_by_id(id)
-                print(genome)
+                print(genome.name)
+                name_list.append(genome.name)
                 print('-' * 10)
 
                 with open(genome.file_path, 'r') as file:
@@ -287,6 +290,25 @@ class DB:
 
             with open(output_file, 'w') as file:
                 file.writelines(file_contents)
+        return name_list
+
+    def convert_to_fasta(self, file_path):
+        import shutil
+
+        empty_path = r'C:\Users\Mahdiar\Desktop\gene_samples'
+        shutil.copy(os.path.join(empty_path, 'empty.fasta'), os.path.join(empty_path, 'empty2.fasta'))
+        file_contents = []
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+            lines_with_newline = [line.rstrip('\n') + '\n' for line in lines]
+            for line in lines_with_newline:
+                file_contents.append(line)
+
+
+        with open(os.path.join(empty_path, 'empty2.fasta'), 'w') as file:
+            file.writelines(file_contents)
+
+
 
 
 

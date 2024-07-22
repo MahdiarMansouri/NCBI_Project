@@ -2,9 +2,10 @@ import json
 
 
 class BlastResults:
-    def __init__(self, query_id, subject_id, identity, alignment_length, mismathces, gap_opens, q_start, q_end,
+    def __init__(self, genome_name, query_id, subject_id, identity, alignment_length, mismathces, gap_opens, q_start, q_end,
                  s_start, s_end, evalue, bit_score, query_length, subject_length, subject_strand, query_frame,
                  subject_frame, qseq_path, sseq_path):
+        self.genome_name = genome_name
         self.query_id = query_id
         self.subject_id = subject_id
         self.identity = identity

@@ -9,7 +9,7 @@ class BLAST:
 
     def blast(self):
         # Create BLAST database
-        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "wgs\WGS"], capture_output=True,
+        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "WGS"], capture_output=True,
                                 text=True)
         print("makeblastdb output:", result.stdout)
         if result.stderr:
@@ -17,7 +17,7 @@ class BLAST:
 
         # Perform BLAST search
         result = subprocess.run(
-            ["blastn", "-query", f"{self.gene_path}", "-db", "wgs\WGS", "-out", f"{self.gene_name}.csv", "-outfmt",
+            ["blastn", "-query", f"{self.gene_path}", "-db", "WGS", "-out", f"{self.gene_name}.csv", "-outfmt",
              "10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qframe sframe qseq sseq"],
             capture_output=True, text=True
         )
