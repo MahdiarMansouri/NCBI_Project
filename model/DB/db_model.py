@@ -116,7 +116,7 @@ class DB:
             alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN cutoff TINYINT"
             self.cursor.execute(alter_table_query)
         update_query = f"""UPDATE {table_name} SET cutoff = CASE
-                                    WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 THEN 0
+                                    WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 or evalue > 0.05 THEN 0
                                     ELSE 1
                                 END
                             """

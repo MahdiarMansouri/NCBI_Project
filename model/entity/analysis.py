@@ -1,5 +1,5 @@
 import mysql.connector
-
+import pandas as pd
 
 class Analysis:
     def __init__(self, db_info):
@@ -37,12 +37,14 @@ class Analysis:
     def analyze_genes(self):
         cursor = self.mydb.cursor()
 
-        # Get all gene tables
+        # Get all gene tables excluding specific tables
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
 
         for table in tables:
             table_name = table[0]
+            if table_name in ["gene_files", "genome_files", "gene_analysis"]:
+                continue
 
             # Total number of entries in the gene table
             total_query = f"SELECT COUNT(*) FROM {table_name}"
@@ -82,17 +84,34 @@ class Analysis:
             duplicate_count = VALUES(duplicate_count),
             duplicate_percentage = VALUES(duplicate_percentage)
             """
-            cursor.execute(insert_query,
-                           (table_name, cutoff_count, cutoff_percentage, duplicate_count, duplicate_percentage))
+            cursor.execute(insert_query, (table_name, cutoff_count, cutoff_percentage, duplicate_count, duplicate_percentage))
             self.mydb.commit()
 
         cursor.close()
         print("Analysis complete.")
 
-    def process_analysis(self):
+    def export_to_excel(self, output_file):
+        cursor = self.mydb.cursor()
+        cursor.execute("SELECT * FROM gene_analysis")
+        rows = cursor.fetchall()
+
+        # Column names
+        columns = [desc[0] for desc in cursor.description]
+
+        # Create DataFrame
+        df = pd.DataFrame(rows, columns=columns)
+
+        # Export to Excel
+        df.to_excel(output_file, index=False)
+        print(f"Analysis results exported to {output_file}.")
+
+        cursor.close()
+
+    def process_analysis(self, output_file):
         self.connect()
         self.create_analysis_table()
         self.analyze_genes()
+        self.export_to_excel(output_file)
         self.close_connection()
 
     def close_connection(self):
