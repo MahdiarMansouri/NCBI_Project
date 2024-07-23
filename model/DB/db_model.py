@@ -36,7 +36,7 @@ class DB:
         result = self.cursor.fetchone()
         return result is not None
 
-    def create_and_insert_blast_results(self, table_name, csv_file):
+    def create_and_insert_blast_results(self, name_list, table_name, csv_file):
         self.connect()
 
         # Check if the table already exists
@@ -48,6 +48,7 @@ class DB:
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
+            genome_name NVARCHAR(20),
             query_id NVARCHAR(100),
             genome_name NVARCHAR(100),
             subject_id VARCHAR(100),
@@ -63,11 +64,11 @@ class DB:
             bit_score FLOAT,
             query_length INT,
             subject_length INT,
-            subject_strand VARCHAR(20),
+            subject_strand NVARCHAR(20),
             query_frame INT,
             sbjct_frame INT,
-            qseq_path VARCHAR(300),
-            sseq_path VARCHAR(300)
+            qseq_path NVARCHAR(300),
+            sseq_path NVARCHAR(300)
         '''
 
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
@@ -116,7 +117,7 @@ class DB:
             alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN cutoff TINYINT"
             self.cursor.execute(alter_table_query)
         update_query = f"""UPDATE {table_name} SET cutoff = CASE
-                                    WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 THEN 0
+                                    WHEN identity < 85 OR (alignment_length / query_length) * 100 < 90 or evalue > 0.05 THEN 0
                                     ELSE 1
                                 END
                             """
@@ -158,10 +159,10 @@ class DB:
     def add_row(self, table_name, row_data):
         self.connect()
         insert_query = f"""
-                INSERT INTO {table_name} (query_id, subject_id, identity, alignment_length, 
+                INSERT INTO {table_name} (genome_name, query_id, subject_id, identity, alignment_length, 
                 mismatches, gap_opens, q_start,q_end, s_start, s_end, evalue, bit_score, query_length, 
                 subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
             """
         self.cursor.execute(insert_query, row_data)
         self.disconnect(commit=True)
@@ -288,11 +289,3 @@ class DB:
                             outfile.write(new_header + '\n')
                         else:
                             outfile.write(line)
-
-
-
-
-
-
-
-
