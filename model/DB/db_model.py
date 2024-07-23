@@ -50,7 +50,8 @@ class DB:
             id INT AUTO_INCREMENT PRIMARY KEY,
             genome_name NVARCHAR(20),
             query_id NVARCHAR(100),
-            subject_id NVARCHAR(100),
+            genome_name NVARCHAR(100),
+            subject_id VARCHAR(100),
             identity FLOAT,
             alignment_length INT,
             mismatches INT,
@@ -72,7 +73,7 @@ class DB:
 
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
         insert_query = f"""
-            INSERT INTO {table_name} (genome_name, query_id, subject_id, identity, alignment_length,
+            INSERT INTO {table_name} (query_id, genome_name, subject_id, identity, alignment_length,
                                       mismatches, gap_opens, q_start, q_end, s_start, s_end, evalue, bit_score,
                                       query_length, subject_length, subject_strand, query_frame, sbjct_frame, qseq_path, sseq_path)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -89,24 +90,23 @@ class DB:
 
         # Iterate through each row in the DataFrame
         for idx, row in df.iterrows():
-            # Define paths for qseq and sseq files
-            qseq_path = f"{self.gene}_qseq_{idx}.fasta"
-            sseq_path = f"{self.gene}_sseq_{idx}.fasta"
+            query_id = row[1]
+            # print(row)
+            genome_name, original_query_id = query_id.split('|')
+            qseq_path = f"{self.gene}_qseq_{idx}.txt"
+            sseq_path = f"{self.gene}_sseq_{idx}.txt"
 
             qseq_path = os.path.join(folder_path, qseq_path)
             sseq_path = os.path.join(folder_path, sseq_path)
 
-            # Write sequences to files
             with open(qseq_path, 'w') as qf:
                 qf.write(row[17])
             with open(sseq_path, 'w') as sf:
                 sf.write(row[18])
 
-            # Insert row into the table
-            row_data = tuple(name_list[idx], (row[:17]) ,qseq_path, sseq_path)
+            row_data = (original_query_id, genome_name) + tuple(row[1:17]) + (qseq_path, sseq_path)
             self.cursor.execute(insert_query, row_data)
 
-        # Disconnect from the database
         self.disconnect(commit=True)
 
     def add_cutoff_column(self, table_name):
@@ -270,49 +270,22 @@ class DB:
         elif file_format == 'json':
             df.to_json(f"{output_file}.json", orient='records')
 
-    def create_combined_wgs(self, id_list):
-        output_file = f"combined_wgs.fasta"
-        name_list = []
-        if not os.path.exists(output_file):
-            file_contents = []
-            for id in id_list:
-                print(id)
-                genome = self.search_genome_by_id(id)
-                print(genome.name)
-                name_list.append(genome.name)
-                print('-' * 10)
+    def create_combined_wgs(self):
+        genomes = self.search_all_genomes()
 
-                with open(genome.file_path, 'r') as file:
-                    lines = file.readlines()
-                    lines_with_newline = [line.rstrip('\n') + '\n' for line in lines]
-                    for line in lines_with_newline:
-                        file_contents.append(line)
+        genome_dict = {}
+        for genome in genomes:
+            genome_dict[genome.name] = genome.file_path
 
-            with open(output_file, 'w') as file:
-                file.writelines(file_contents)
-        return name_list
-
-    def convert_to_fasta(self, file_path):
-        import shutil
-
-        empty_path = r'C:\Users\Mahdiar\Desktop\gene_samples'
-        shutil.copy(os.path.join(empty_path, 'empty.fasta'), os.path.join(empty_path, 'empty2.fasta'))
-        file_contents = []
-        with open(file_path, 'r') as file:
-            lines = file.readlines()
-            lines_with_newline = [line.rstrip('\n') + '\n' for line in lines]
-            for line in lines_with_newline:
-                file_contents.append(line)
-
-
-        with open(os.path.join(empty_path, 'empty2.fasta'), 'w') as file:
-            file.writelines(file_contents)
-
-
-
-
-
-
-
-
-
+        output_file = "combined_wgs.fasta"
+        with open(output_file, 'w') as outfile:
+            for genome_name, genome_path in genome_dict.items():
+                with open(genome_path, 'r') as infile:
+                    for line in infile:
+                        if line.startswith('>'):
+                            header = line.strip()
+                            # Embed genome name in the query_id
+                            new_header = f">{genome_name}|{header[1:]}"
+                            outfile.write(new_header + '\n')
+                        else:
+                            outfile.write(line)

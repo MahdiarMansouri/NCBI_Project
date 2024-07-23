@@ -11,7 +11,7 @@ start_time = datetime.now()
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'root123',
+    'password': '@danialgh1313',
     'database': 'wgs'
 }
 
@@ -19,10 +19,7 @@ WGS = r"combined_wgs.fasta"
 Gene = "mepa"
 
 db = DB(Gene, db_info)
-
-# Create 'combined_wgs.fasta' file for blast
-genomes = db.search_all_genomes()
-name_list = db.create_combined_wgs([i for i in range(1, len(genomes))])
+db.create_combined_wgs()
 
 # Create a list of genes from database for blast
 genes_list = db.search_all_genes()
