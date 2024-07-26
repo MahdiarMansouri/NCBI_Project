@@ -11,7 +11,7 @@ start_time = datetime.now()
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'password': '@danialgh1313',
+    'password': 'root123',
     'database': 'wgs'
 }
 
@@ -32,7 +32,7 @@ for gene in genes_list:
     blast = BLAST(WGS, gene)
     blast.blast()
     db = DB(gene.name, db_info)
-    db.create_and_insert_blast_results(name_list, gene.name, gene.name)
+    db.create_and_insert_blast_results(gene.name, gene.name)
     db.add_cutoff_column(gene.name)
     duplicate_checker = DuplicateCheck(gene.name, db_info)
     duplicate_checker.process_duplicates()

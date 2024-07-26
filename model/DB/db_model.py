@@ -36,7 +36,7 @@ class DB:
         result = self.cursor.fetchone()
         return result is not None
 
-    def create_and_insert_blast_results(self, name_list, table_name, csv_file):
+    def create_and_insert_blast_results(self, table_name, csv_file):
         self.connect()
 
         # Check if the table already exists
@@ -48,7 +48,6 @@ class DB:
         # Define table columns and types
         columns = '''
             id INT AUTO_INCREMENT PRIMARY KEY,
-            genome_name NVARCHAR(20),
             query_id NVARCHAR(100),
             genome_name NVARCHAR(100),
             subject_id VARCHAR(100),
@@ -93,8 +92,8 @@ class DB:
             query_id = row[1]
             # print(row)
             genome_name, original_query_id = query_id.split('|')
-            qseq_path = f"{self.gene}_qseq_{idx}.txt"
-            sseq_path = f"{self.gene}_sseq_{idx}.txt"
+            qseq_path = f"{self.gene}_qseq_{idx}.fasta"
+            sseq_path = f"{self.gene}_sseq_{idx}.fasta"
 
             qseq_path = os.path.join(folder_path, qseq_path)
             sseq_path = os.path.join(folder_path, sseq_path)
