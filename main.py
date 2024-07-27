@@ -3,6 +3,7 @@ from model.DB.db_model import DB
 from model.entity.blast_model import BLAST
 from model.entity.duplicate import *
 from model.entity.analysis import *
+import time
 
 
 start_time = datetime.now()
@@ -11,7 +12,7 @@ start_time = datetime.now()
 db_info = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'root123',
+    'password': 'mrnd181375',
     'database': 'wgs'
 }
 
@@ -31,6 +32,7 @@ for gene in genes_list:
     print('name: ', gene.name)
     blast = BLAST(WGS, gene)
     blast.blast()
+    time.sleep(1)
     db = DB(gene.name, db_info)
     db.create_and_insert_blast_results(gene.name, gene.name)
     db.add_cutoff_column(gene.name)

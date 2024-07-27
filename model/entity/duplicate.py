@@ -18,48 +18,47 @@ class DuplicateCheck:
                 database=self.db_info['database']
             )
             print("Successfully connected to the database.")
+            self.cursor = self.mydb.cursor()
         except mysql.connector.Error as err:
             print(f"Error: {err}")
 
+    def disconnect(self, commit=False):
+        if commit:
+            self.mydb.commit()
+        self.cursor.close()
+        self.mydb.close()
+
     def column_exists(self, table_name, column_name):
-        cursor = self.mydb.cursor()
         query = f"SHOW COLUMNS FROM {table_name} LIKE '{column_name}'"
-        cursor.execute(query)
-        result = cursor.fetchone()
-        cursor.close()
+        self.cursor.execute(query)
+        result = self.cursor.fetchone()
         return result is not None
 
     def add_duplicate_column(self, table_name):
         if not self.column_exists(table_name, 'duplicate'):
-            cursor = self.mydb.cursor()
-            alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN duplicate TINYINT DEFAULT 0"
+            alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN duplicate NVARCHAR(10) "
             try:
-                cursor.execute(alter_table_query)
-                self.mydb.commit()
+                self.cursor.execute(alter_table_query)
                 print(f"Column 'duplicate' added to {table_name} table.")
 
                 # Initialize all existing rows with 0
-                update_query = f"UPDATE {table_name} SET duplicate = 0"
-                cursor.execute(update_query)
-                self.mydb.commit()
+                update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE cutoff = 1"
+                self.cursor.execute(update_query)
                 print("Initialized 'duplicate' column to 0 for all rows.")
+                self.mydb.commit()
             except mysql.connector.Error as err:
                 print(f"Error adding column: {err}")
-            finally:
-                cursor.close()
         else:
             print("Column 'duplicate' already exists.")
 
     def get_sequences(self, table_name):
-        cursor = self.mydb.cursor()
         select_query = f"""
             SELECT id, qseq_path, identity, alignment_length, query_length
             FROM {table_name}
             WHERE cutoff = 1
         """
-        cursor.execute(select_query)
-        sequences = cursor.fetchall()
-        cursor.close()
+        self.cursor.execute(select_query)
+        sequences = self.cursor.fetchall()
         return sequences
 
     def blast_sequences(self, seq1_path, seq2_path):
@@ -98,74 +97,84 @@ class DuplicateCheck:
             key = (identity, coverage)
             if key not in grouped_sequences:
                 grouped_sequences[key] = []
-            grouped_sequences[key].append((id, qseq_path))
+            permission = 1
+            grouped_sequences[key].append((id, qseq_path, permission))
 
         for key, seq_group in grouped_sequences.items():
             seq_count = len(seq_group)
             for i in range(seq_count):
-                for j in range(i + 1, seq_count):
-                    id1, seq1_path = seq_group[i]
-                    id2, seq2_path = seq_group[j]
-                    blast_output = self.blast_sequences(seq1_path, seq2_path)
+                if seq_group[i][2] == 1:
+                    value = 1
+                    for j in range(i + 1, seq_count):
+                        id1, seq1_path, permission1 = seq_group[i]
+                        id2, seq2_path, permission2 = seq_group[j]
+                        blast_output = self.blast_sequences(seq1_path, seq2_path)
 
-                    # Ensure the BLAST output is valid
-                    if len(blast_output) < 7:
-                        print(f"Invalid BLAST output for {seq1_path} vs {seq2_path}: {blast_output}")
-                        continue
+                        # Ensure the BLAST output is valid
+                        if len(blast_output) < 7:
+                            print(f"Invalid BLAST output for {seq1_path} vs {seq2_path}: {blast_output}")
+                            continue
 
-                    try:
-                        identity = float(blast_output[0])
-                        qlen = int(blast_output[1])
-                        slen = int(blast_output[2])
-                        qstart = int(blast_output[3])
-                        qend = int(blast_output[4])
-                        sstart = int(blast_output[5])
-                        send = int(blast_output[6])
-                    except ValueError as e:
-                        print(f"Error converting BLAST output: {e}")
-                        continue
+                        try:
+                            identity = float(blast_output[0])
+                            qlen = int(blast_output[1])
+                            slen = int(blast_output[2])
+                            qstart = int(blast_output[3])
+                            qend = int(blast_output[4])
+                            sstart = int(blast_output[5])
+                            send = int(blast_output[6])
+                        except ValueError as e:
+                            print(f"Error converting BLAST output: {e}")
+                            continue
 
-                    q_coverage = ((qend - qstart + 1) / qlen) * 100
-                    s_coverage = ((send - sstart + 1) / slen) * 100
+                        q_coverage = ((qend - qstart + 1) / qlen) * 100
+                        s_coverage = ((send - sstart + 1) / slen) * 100
 
-                    cursor = self.mydb.cursor()
-                    if identity < 100:
-                        update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1} OR id = {id2}"
-                    else:
-                        if q_coverage >= s_coverage:
-                            update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id2}"
-                        else:
+
+                        if identity < 100:
                             update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1}"
-
-                    cursor.execute(update_query)
-                    self.mydb.commit()
-                    cursor.close()
+                        else:
+                            if q_coverage >= s_coverage:
+                                update_query = (f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id2}")
+                                self.cursor.execute(update_query)
+                                update_query = (f"UPDATE {table_name} SET duplicate = 0 WHERE id = {id1}")
+                                self.cursor.execute(update_query)
+                                value = 0
+                            else:
+                                update_query = (f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1};")
+                                self.cursor.execute(update_query)
+                                update_query = (f"UPDATE {table_name} SET duplicate = 0 WHERE id = {id2}")
+                                self.cursor.execute(update_query)
+                                seq_group[j][2] = 0
+                        self.cursor.execute(update_query)
+                        self.mydb.commit()
+                        if value == 0:
+                            break
 
     def process_duplicates(self):
         self.connect()
         self.add_duplicate_column(self.gene)
         self.update_duplicate_column(self.gene)
         self.show_database_contents(self.gene)
+        self.disconnect()
 
     def show_database_contents(self, table_name):
         # Query to select all rows from the specified table
         select_query = f"SELECT * FROM {table_name}"
 
         # Execute the query
-        cursor = self.mydb.cursor()
-        cursor.execute(select_query)
+        self.cursor.execute(select_query)
 
         # Fetch all rows from the result set
-        rows = cursor.fetchall()
+        rows = self.cursor.fetchall()
 
         # Print column headers
         print("Database Contents:")
         print("-------------------")
-        columns = [desc[0] for desc in cursor.description]
+        columns = [desc[0] for desc in self.cursor.description]
         print("\t".join(columns))
 
         # Print each row
         for row in rows:
             print("\t".join(str(col) for col in row))
 
-        cursor.close()
