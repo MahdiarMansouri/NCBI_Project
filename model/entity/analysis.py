@@ -50,12 +50,11 @@ class Analysis:
             table_name = table[0]
             if table_name in ["gene_files", "genome_files", "gene_analysis"]:
                 continue
-
             # Total number of entries in the gene table
-            total_query = f"SELECT COUNT(*) FROM {table_name}"
+            total_query = f"SELECT COUNT(DISTINCT {genome_name}) FROM {table_name} "
             cursor.execute(total_query)
             total_count = cursor.fetchone()[0]
-
+            print(f"{table_name} has {total_count} 11111111111111111111111111111111111111111111111111111111111")
             # Check for the existence of columns
             cursor.execute(f"SHOW COLUMNS FROM {table_name} LIKE 'cutoff'")
             has_cutoff = cursor.fetchone() is not None
@@ -84,8 +83,8 @@ class Analysis:
                 cursor.execute(duplicate_query)
                 diversity_count = cursor.fetchone()[0]
                 duplicate_count = (gene_presence_count - diversity_count)
-                duplicate_percentage = (duplicate_count / total_count) * 100 if total_count else 0
-                diversity_percentage = (diversity_count / total_count) * 100 if total_count else 0
+                duplicate_percentage = (duplicate_count / gene_presence_count) * 100 if total_count else 0
+                diversity_percentage = (diversity_count / gene_presence_count) * 100 if total_count else 0
 
 
 
