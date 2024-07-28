@@ -83,7 +83,7 @@ class Analysis:
                 duplicate_query = f"SELECT COUNT(*) FROM {table_name} WHERE duplicate = 1"
                 cursor.execute(duplicate_query)
                 diversity_count = cursor.fetchone()[0]
-                duplicate_count = ((gene_presence_count - cutoff_count) - diversity_count)
+                duplicate_count = (gene_presence_count - diversity_count)
                 duplicate_percentage = (duplicate_count / total_count) * 100 if total_count else 0
                 diversity_percentage = (diversity_count / total_count) * 100 if total_count else 0
 
