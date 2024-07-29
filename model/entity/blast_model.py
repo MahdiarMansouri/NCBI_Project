@@ -10,7 +10,7 @@ class BLAST:
     def blast(self):
         # Create BLAST database
         os.makedirs('wgs', exist_ok=True)
-        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "wgs\WGS"], capture_output=True,
+        result = subprocess.run(["makeblastdb", "-in", self.WGS, "-dbtype", "nucl", "-out", "WGS"], capture_output=True,
                                 text=True)
         print("makeblastdb output:", result.stdout)
         if result.stderr:
