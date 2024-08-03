@@ -50,11 +50,16 @@ class Analysis:
             table_name = table[0]
             if table_name in ["gene_files", "genome_files", "gene_analysis"]:
                 continue
+            # genome_name = cursor.fetchone(f"FROM COLUMNS LIKE 'genome_name'")
             # Total number of entries in the gene table
-            total_query = f"SELECT COUNT(DISTINCT {genome_name}) FROM {table_name} "
+            # total_query = f"SELECT COUNT(DISTINCT name) FROM genome_files "
+            total_blast_query = f"SELECT COUNT(*) FROM {table_name}"
+            cursor.execute(total_blast_query)
+            total_blast_query_count = cursor.fetchone()[0]
+            total_query = f"SELECT COUNT(DISTINCT name) FROM genome_files "
             cursor.execute(total_query)
             total_count = cursor.fetchone()[0]
-            print(f"{table_name} has {total_count} 11111111111111111111111111111111111111111111111111111111111")
+
             # Check for the existence of columns
             cursor.execute(f"SHOW COLUMNS FROM {table_name} LIKE 'cutoff'")
             has_cutoff = cursor.fetchone() is not None
@@ -70,9 +75,12 @@ class Analysis:
                 cutoff_query = f"SELECT COUNT(*) FROM {table_name} WHERE cutoff = 1"
                 cursor.execute(cutoff_query)
                 gene_presence_count = cursor.fetchone()[0]
-                cutoff_count = (total_count - gene_presence_count)
-                cutoff_percentage = (cutoff_count / total_count) * 100 if total_count else 0
-                gene_presence_percentage = (gene_presence_count / total_count) * 100 if total_count else 0
+                cutoff_count = (total_blast_query_count - gene_presence_count)
+                if total_blast_query_count == 0:
+                    continue
+                else:
+                    cutoff_percentage = (cutoff_count / total_blast_query_count) * 100 if total_count else 0
+                    gene_presence_percentage = (gene_presence_count / total_count) * 100 if total_count else 0
 
             duplicate_count = 0
             duplicate_percentage = 0
@@ -83,8 +91,11 @@ class Analysis:
                 cursor.execute(duplicate_query)
                 diversity_count = cursor.fetchone()[0]
                 duplicate_count = (gene_presence_count - diversity_count)
-                duplicate_percentage = (duplicate_count / gene_presence_count) * 100 if total_count else 0
-                diversity_percentage = (diversity_count / gene_presence_count) * 100 if total_count else 0
+                if gene_presence_count == 0:
+                    continue
+                else:
+                    duplicate_percentage = (duplicate_count / gene_presence_count) * 100 if total_count else 0
+                    diversity_percentage = (diversity_count / gene_presence_count) * 100 if total_count else 0
 
 
 
