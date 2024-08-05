@@ -36,15 +36,15 @@ class DuplicateCheck:
 
     def add_duplicate_column(self, table_name):
         if not self.column_exists(table_name, 'duplicate'):
-            alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN duplicate NVARCHAR(10) "
+            alter_table_query = f"ALTER TABLE {table_name} ADD COLUMN duplicate NVARCHAR(10)"
             try:
                 self.cursor.execute(alter_table_query)
                 print(f"Column 'duplicate' added to {table_name} table.")
 
-                # Initialize all existing rows with 0
+                # Initialize all existing rows with 1 where cutoff is 1
                 update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE cutoff = 1"
                 self.cursor.execute(update_query)
-                print("Initialized 'duplicate' column to 0 for all rows.")
+                print("Initialized 'duplicate' column to 1 for all rows.")
                 self.mydb.commit()
             except mysql.connector.Error as err:
                 print(f"Error adding column: {err}")
@@ -61,7 +61,22 @@ class DuplicateCheck:
         sequences = self.cursor.fetchall()
         return sequences
 
+    def clean_fasta(self, file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+
+        with open(file_path, 'w') as file:
+            for line in lines:
+                if line.startswith('>'):
+                    file.write(line)
+                else:
+                    file.write(line.replace('-', ''))
+
     def blast_sequences(self, seq1_path, seq2_path):
+        # Clean the FASTA files
+        self.clean_fasta(seq1_path)
+        self.clean_fasta(seq2_path)
+
         # Check if sequence files exist and have content
         if not os.path.isfile(seq1_path) or not os.path.isfile(seq2_path):
             print(f"Sequence file missing: {seq1_path} or {seq2_path}")
@@ -81,7 +96,7 @@ class DuplicateCheck:
         if result.stderr:
             print(f"BLAST error: {result.stderr}")
 
-        blast_output = result.stdout.strip().split(',')
+        blast_output = result.stdout.strip().replace('\n', ',').split(',')
         return blast_output
 
     def calculate_coverage(self, alignment_length, query_length):
@@ -89,67 +104,57 @@ class DuplicateCheck:
 
     def update_duplicate_column(self, table_name):
         sequences = self.get_sequences(table_name)
-        grouped_sequences = {}
+        permission_sequences = [[id, qseq_path, 1] for id, qseq_path, identity, alignment_length, query_length in
+                                sequences]
 
-        for seq in sequences:
-            id, qseq_path, identity, alignment_length, query_length = seq
-            coverage = self.calculate_coverage(alignment_length, query_length)
-            key = (identity, coverage)
-            if key not in grouped_sequences:
-                grouped_sequences[key] = []
-            permission = 1
-            grouped_sequences[key].append((id, qseq_path, permission))
+        seq_count = len(permission_sequences)
+        for i in range(seq_count):
+            if permission_sequences[i][2] == 1:
+                value = 1
+                for j in range(i + 1, seq_count):
+                    id1, seq1_path, permission1 = permission_sequences[i]
+                    id2, seq2_path, permission2 = permission_sequences[j]
+                    blast_output = self.blast_sequences(seq1_path, seq2_path)
 
-        for key, seq_group in grouped_sequences.items():
-            seq_count = len(seq_group)
-            for i in range(seq_count):
-                if seq_group[i][2] == 1:
-                    value = 1
-                    for j in range(i + 1, seq_count):
-                        id1, seq1_path, permission1 = seq_group[i]
-                        id2, seq2_path, permission2 = seq_group[j]
-                        blast_output = self.blast_sequences(seq1_path, seq2_path)
+                    # Ensure the BLAST output is valid
+                    if len(blast_output) < 7:
+                        print(f"Invalid BLAST output for {seq1_path} vs {seq2_path}: {blast_output}")
+                        continue
 
-                        # Ensure the BLAST output is valid
-                        if len(blast_output) < 7:
-                            print(f"Invalid BLAST output for {seq1_path} vs {seq2_path}: {blast_output}")
-                            continue
+                    try:
+                        identity = float(blast_output[0])
+                        qlen = int(blast_output[1])
+                        slen = int(blast_output[2])
+                        qstart = int(blast_output[3])
+                        qend = int(blast_output[4])
+                        sstart = int(blast_output[5])
+                        send = int(blast_output[6])
+                    except ValueError as e:
+                        print(f"Error converting BLAST output: {e}")
+                        continue
 
-                        try:
-                            identity = float(blast_output[0])
-                            qlen = int(blast_output[1])
-                            slen = int(blast_output[2])
-                            qstart = int(blast_output[3])
-                            qend = int(blast_output[4])
-                            sstart = int(blast_output[5])
-                            send = int(blast_output[6])
-                        except ValueError as e:
-                            print(f"Error converting BLAST output: {e}")
-                            continue
+                    q_coverage = ((qend - qstart + 1) / qlen) * 100
+                    s_coverage = ((send - sstart + 1) / slen) * 100
 
-                        q_coverage = ((qend - qstart + 1) / qlen) * 100
-                        s_coverage = ((send - sstart + 1) / slen) * 100
-
-
-                        if identity < 100:
-                            update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1}"
+                    if identity < 100:
+                        update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1}"
+                    else:
+                        if q_coverage >= s_coverage:
+                            update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id2}"
+                            self.cursor.execute(update_query)
+                            update_query = f"UPDATE {table_name} SET duplicate = 0 WHERE id = {id1}"
+                            self.cursor.execute(update_query)
+                            value = 0
                         else:
-                            if q_coverage >= s_coverage:
-                                update_query = (f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id2}")
-                                self.cursor.execute(update_query)
-                                update_query = (f"UPDATE {table_name} SET duplicate = 0 WHERE id = {id1}")
-                                self.cursor.execute(update_query)
-                                value = 0
-                            else:
-                                update_query = (f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1};")
-                                self.cursor.execute(update_query)
-                                update_query = (f"UPDATE {table_name} SET duplicate = 0 WHERE id = {id2}")
-                                self.cursor.execute(update_query)
-                                seq_group[j][2] = 0
-                        self.cursor.execute(update_query)
-                        self.mydb.commit()
-                        if value == 0:
-                            break
+                            update_query = f"UPDATE {table_name} SET duplicate = 1 WHERE id = {id1}"
+                            self.cursor.execute(update_query)
+                            update_query = f"UPDATE {table_name} SET duplicate = 0 WHERE id = {id2}"
+                            self.cursor.execute(update_query)
+                            permission_sequences[j][2] = 0
+                    self.cursor.execute(update_query)
+                    self.mydb.commit()
+                    if value == 0:
+                        break
 
     def process_duplicates(self):
         self.connect()
@@ -177,4 +182,3 @@ class DuplicateCheck:
         # Print each row
         for row in rows:
             print("\t".join(str(col) for col in row))
-
