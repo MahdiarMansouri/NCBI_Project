@@ -53,7 +53,7 @@ class DuplicateCheck:
 
     def get_sequences(self, table_name):
         select_query = f"""
-            SELECT id, qseq_path, identity, alignment_length, query_length
+            SELECT id, sseq_path, identity, alignment_length, query_length
             FROM {table_name}
             WHERE cutoff = 1
         """
@@ -104,7 +104,7 @@ class DuplicateCheck:
 
     def update_duplicate_column(self, table_name):
         sequences = self.get_sequences(table_name)
-        permission_sequences = [[id, qseq_path, 1] for id, qseq_path, identity, alignment_length, query_length in
+        permission_sequences = [[id, sseq_path, 1] for id, sseq_path, identity, alignment_length, query_length in
                                 sequences]
 
         seq_count = len(permission_sequences)
