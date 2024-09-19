@@ -1,6 +1,7 @@
 import mysql.connector
 import pandas as pd
 
+
 class Analysis:
     def __init__(self, db_info):
         self.db_info = db_info
@@ -30,8 +31,9 @@ class Analysis:
             duplicate_count INT,
             duplicate_percentage FLOAT,
             diversity_count INT,
-            diversity_percentage FLOAT
-            
+            diversity_percentage FLOAT,
+            distinct_gene_presence_count INT
+
         )
         """
         cursor.execute(create_table_query)
@@ -48,7 +50,7 @@ class Analysis:
 
         for table in tables:
             table_name = table[0]
-            if table_name in ["gene_files", "genome_files", "gene_analysis"]:
+            if table_name in ["gene_files", "genome_files", "gene_analysis", "genome_gene"]:
                 continue
             # genome_name = cursor.fetchone(f"FROM COLUMNS LIKE 'genome_name'")
             # Total number of entries in the gene table
@@ -71,16 +73,23 @@ class Analysis:
             cutoff_percentage = 0
             gene_presence_count = 0
             gene_presence_percentage = 0
+            distinct_gene_presence_count = 0
+
             if has_cutoff:
                 cutoff_query = f"SELECT COUNT(*) FROM {table_name} WHERE cutoff = 1"
                 cursor.execute(cutoff_query)
                 gene_presence_count = cursor.fetchone()[0]
+
+                distinct_gene_presence_query = f"SELECT COUNT(DISTINCT genome_name) FROM {table_name} WHERE cutoff = 1"
+                cursor.execute(distinct_gene_presence_query)
+                distinct_gene_presence_count = cursor.fetchone()[0]
+
                 cutoff_count = (total_blast_query_count - gene_presence_count)
                 if total_blast_query_count == 0:
                     continue
                 else:
                     cutoff_percentage = (cutoff_count / total_blast_query_count) * 100 if total_count else 0
-                    gene_presence_percentage = (gene_presence_count / total_count) * 100 if total_count else 0
+                    gene_presence_percentage = (distinct_gene_presence_count / total_count) * 100 if total_count else 0
 
             duplicate_count = 0
             duplicate_percentage = 0
@@ -97,13 +106,10 @@ class Analysis:
                     duplicate_percentage = (duplicate_count / gene_presence_count) * 100 if total_count else 0
                     diversity_percentage = (diversity_count / gene_presence_count) * 100 if total_count else 0
 
-
-
-
             # Insert or update analysis results in gene_analysis table
             insert_query = """
-            INSERT INTO gene_analysis (gene_name, cutoff_count, cutoff_percentage, duplicate_count, duplicate_percentage, gene_presence_count, gene_presence_percentage, diversity_count, diversity_percentage)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO gene_analysis (gene_name, cutoff_count, cutoff_percentage, duplicate_count, duplicate_percentage, gene_presence_count, gene_presence_percentage, diversity_count, diversity_percentage, distinct_gene_presence_count)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
             cutoff_count = VALUES(cutoff_count),
             cutoff_percentage = VALUES(cutoff_percentage),
@@ -112,36 +118,88 @@ class Analysis:
             gene_presence_count = VALUES(gene_presence_count),
             gene_presence_percentage = VALUES(gene_presence_percentage),
             diversity_count = VALUES(diversity_count),
-            diversity_percentage = VALUES(diversity_percentage)
+            diversity_percentage = VALUES(diversity_percentage),
+            distinct_gene_presence_count = VALUES(distinct_gene_presence_count)
             """
-            cursor.execute(insert_query, (table_name, cutoff_count, cutoff_percentage, duplicate_count, duplicate_percentage, gene_presence_count, gene_presence_percentage, diversity_count, diversity_percentage))
+            cursor.execute(insert_query, (
+            table_name, cutoff_count, cutoff_percentage, duplicate_count, duplicate_percentage, gene_presence_count,
+            gene_presence_percentage, diversity_count, diversity_percentage, distinct_gene_presence_count))
             self.mydb.commit()
 
         cursor.close()
         print("Analysis complete.")
 
-    def export_to_excel(self, output_file):
+    def export_to_excel(self, table_names, output_files):
         cursor = self.mydb.cursor()
-        cursor.execute("SELECT * FROM gene_analysis")
-        rows = cursor.fetchall()
 
-        # Column names
-        columns = [desc[0] for desc in cursor.description]
+        for table_name, output_file in zip(table_names, output_files):
+            query = f"SELECT * FROM {table_name}"
+            cursor.execute(query)
+            rows = cursor.fetchall()
 
-        # Create DataFrame
-        df = pd.DataFrame(rows, columns=columns)
+            # Column names
+            columns = [desc[0] for desc in cursor.description]
 
-        # Export to Excel
-        df.to_excel(output_file, index=False)
-        print(f"Analysis results exported to {output_file}.")
+            # Create DataFrame
+            df = pd.DataFrame(rows, columns=columns)
+
+            # Export to Excel
+            df.to_excel(output_file, index=False)
+            print(f"{table_name} exported to {output_file}.")
 
         cursor.close()
 
-    def process_analysis(self, output_file):
+    def create_genome_gene_table(self):
+        cursor = self.mydb.cursor()
+
+        # Create the genome_gene table if it doesn't exist
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS genome_gene (
+            genome_name VARCHAR(100) PRIMARY KEY
+        )
+        """)
+
+        # Get all gene tables excluding specific tables
+        cursor.execute("SHOW TABLES")
+        tables = cursor.fetchall()
+
+        for table in tables:
+            gene_name = table[0]
+            if gene_name in ["gene_files", "genome_files", "gene_analysis", "genome_gene"]:
+                continue
+
+            # Add a column for the gene if it doesn't exist
+            cursor.execute(f"SHOW COLUMNS FROM genome_gene LIKE '{gene_name}'")
+            if not cursor.fetchone():
+                cursor.execute(f"ALTER TABLE genome_gene ADD COLUMN {gene_name} INT DEFAULT 0")
+
+            # Insert genome names into the genome_gene table if they don't exist
+            insert_genome_query = """
+            INSERT INTO genome_gene (genome_name)
+            SELECT DISTINCT name FROM genome_files
+            ON DUPLICATE KEY UPDATE genome_name = VALUES(genome_name)
+            """
+            cursor.execute(insert_genome_query)
+
+            # Update the genome_gene table for genomes that have the gene (cutoff = 1)
+            update_query = f"""
+            UPDATE genome_gene gg
+            JOIN {gene_name} g ON gg.genome_name = REPLACE(g.genome_name, '.fas', '')
+            SET gg.{gene_name} = 1
+            WHERE g.cutoff = 1
+            """
+            cursor.execute(update_query)
+
+        self.mydb.commit()
+        cursor.close()
+        print("Genome-gene association table created.")
+
+    def process_analysis(self, output_files):
         self.connect()
         self.create_analysis_table()
         self.analyze_genes()
-        self.export_to_excel(output_file)
+        self.create_genome_gene_table()
+        self.export_to_excel(['gene_analysis', 'genome_gene'], output_files)
         self.close_connection()
 
     def close_connection(self):

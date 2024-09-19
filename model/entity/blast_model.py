@@ -1,6 +1,7 @@
 import subprocess
 import os
 
+
 class BLAST:
     def __init__(self, WGS, gene):
         self.WGS = WGS
