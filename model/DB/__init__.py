@@ -14,6 +14,7 @@ def get_files(folder_path):
             file_details.append((name, file_path, file))
     return file_details
 
+
 # Function to connect to MySQL and create table
 def create_table_and_insert_data(folder_paths):
     try:
@@ -21,7 +22,7 @@ def create_table_and_insert_data(folder_paths):
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='root123',
+            password='mrnd181375',
         )
 
         if connection.is_connected():
@@ -91,6 +92,6 @@ def create_table_and_insert_data(folder_paths):
 
 
 # Main function
-gene_sample_path = r'C:\Users\Mahdiar\Desktop\Negar genes'
-genome_sample_path = r'C:\Users\Mahdiar\Desktop\wgs'
+gene_sample_path = r'C:\Users\mrnaj\OneDrive\Desktop\genes sample'
+genome_sample_path = r'C:\Users\mrnaj\OneDrive\Desktop\whole_genome'
 create_table_and_insert_data([gene_sample_path, genome_sample_path])

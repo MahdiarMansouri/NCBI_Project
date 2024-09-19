@@ -90,14 +90,25 @@ class DB:
         # Iterate through each row in the DataFrame
         for idx, row in df.iterrows():
             query_id = row[1]
-            # print(row)
-            genome_name, original_query_id = query_id.split('|')
+
+            # Split the query_id by '|'
+            parts = query_id.split('|')
+
+            if len(parts) == 2:
+                genome_name, original_query_id = parts
+            elif len(parts) > 2:
+                genome_name = parts[0]
+                original_query_id = parts[2]
+                # If needed, you can handle additional parts here
+            else:
+                print(f"Unexpected format in query_id: {query_id}")
+                continue
+
             qseq_path = f"{self.gene}_qseq_{idx}.fasta"
             sseq_path = f"{self.gene}_sseq_{idx}.fasta"
 
             qseq_path = os.path.join(folder_path, qseq_path)
             sseq_path = os.path.join(folder_path, sseq_path)
-
             with open(qseq_path, 'w') as qf:
                 qf.write(row[17])
             with open(sseq_path, 'w') as sf:

@@ -39,7 +39,7 @@ for gene in genes_list:
     duplicate_checker = DuplicateCheck(gene.name, db_info)
     duplicate_checker.process_duplicates()
     analysis = Analysis(db_info)
-    analysis.process_analysis(output_file)
+    analysis.process_analysis(['gene_analysis.xlsx', 'genome_gene.xlsx'])
     db.export_table(gene.name, gene.name, 'excel')
 
 
